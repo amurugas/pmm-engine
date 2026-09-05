@@ -1,0 +1,340 @@
+<div id="pmm-workspace">
+  <style>
+    #pmm-workspace {
+      color-scheme: light dark;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      color: light-dark(#17212b, #e9eef3);
+      background: light-dark(#eef2f5, #111820);
+      border: 1px solid light-dark(#c6d0da, #364552);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    #pmm-workspace * { box-sizing: border-box; }
+    #pmm-workspace .pmm-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 12px 16px;
+      background: light-dark(#21364a, #1b2b3a);
+      color: #f5f8fa;
+      border-bottom: 1px solid light-dark(#182838, #40505e);
+    }
+    #pmm-workspace .pmm-brand { font-weight: 500; letter-spacing: .02em; }
+    #pmm-workspace .pmm-subtitle { opacity: .72; margin-left: 10px; font-weight: 400; }
+    #pmm-workspace .pmm-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    #pmm-workspace .pmm-actions button,
+    #pmm-workspace .pmm-tabs button,
+    #pmm-workspace .pmm-close {
+      appearance: none;
+      font: inherit;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    #pmm-workspace .pmm-actions button {
+      padding: 7px 11px;
+      color: #f5f8fa;
+      border: 1px solid #71869a;
+      background: #314b61;
+    }
+    #pmm-workspace .pmm-actions button:first-child { background: #167262; border-color: #3ba18f; }
+    #pmm-workspace .pmm-layout { display: grid; grid-template-columns: 1fr 1fr; min-height: 650px; }
+    #pmm-workspace .pmm-left,
+    #pmm-workspace .pmm-right { min-width: 0; padding: 16px; }
+    #pmm-workspace .pmm-left {
+      background: light-dark(#f8fafb, #18212a);
+      border-right: 1px solid light-dark(#cbd4dc, #364552);
+    }
+    #pmm-workspace .pmm-right { background: light-dark(#ffffff, #151d25); }
+    #pmm-workspace h2,
+    #pmm-workspace h3 { margin: 0; font-weight: 500; }
+    #pmm-workspace h2 { margin-bottom: 12px; }
+    #pmm-workspace h3 { margin-bottom: 8px; }
+    #pmm-workspace .pmm-section-figure {
+      display: grid;
+      place-items: center;
+      min-height: 330px;
+      background: light-dark(#ffffff, #202a34);
+      border: 1px solid light-dark(#d4dce3, #3a4855);
+      border-radius: 8px;
+    }
+    #pmm-workspace .pmm-section-figure svg { width: min(100%, 360px); height: 320px; }
+    #pmm-workspace .pmm-assumptions { margin-top: 14px; }
+    #pmm-workspace .pmm-input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; }
+    #pmm-workspace .pmm-input-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 6px 0;
+      border-bottom: 1px solid light-dark(#e2e7eb, #2c3945);
+    }
+    #pmm-workspace .pmm-value { font-variant-numeric: tabular-nums; font-weight: 500; }
+    #pmm-workspace .pmm-note { margin: 10px 0 0; color: light-dark(#536272, #acbac7); }
+    #pmm-workspace .pmm-tabs { display: flex; gap: 4px; margin-bottom: 8px; flex-wrap: wrap; }
+    #pmm-workspace .pmm-tabs button {
+      padding: 6px 9px;
+      color: inherit;
+      background: transparent;
+      border: 1px solid transparent;
+    }
+    #pmm-workspace .pmm-tabs button[aria-pressed="true"] {
+      color: light-dark(#123f39, #b8fff0);
+      background: light-dark(#d9f1eb, #214c45);
+      border-color: light-dark(#91cbbd, #3a776d);
+    }
+    #pmm-workspace .pmm-chart { height: 345px; min-width: 0; }
+    #pmm-workspace .pmm-chart svg { width: 100%; height: 100%; display: block; }
+    #pmm-workspace .pmm-table-title { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-top: 12px; }
+    #pmm-workspace table { width: 100%; border-collapse: collapse; margin-top: 7px; font-variant-numeric: tabular-nums; }
+    #pmm-workspace th,
+    #pmm-workspace td { padding: 7px 6px; border-bottom: 1px solid light-dark(#dfe5ea, #303d48); text-align: right; white-space: nowrap; }
+    #pmm-workspace th:first-child,
+    #pmm-workspace td:first-child { text-align: left; }
+    #pmm-workspace th { color: light-dark(#526170, #aebbc7); font-weight: 500; }
+    #pmm-workspace .pmm-ok { color: light-dark(#176f5e, #67d7bf); font-weight: 500; }
+    #pmm-workspace .pmm-modal {
+      display: none;
+      position: absolute;
+      inset: 12px;
+      z-index: 5;
+      padding: 18px 22px;
+      overflow: auto;
+      background-color: light-dark(#fffef8, #20221d);
+      color: light-dark(#21252a, #f0f0e8);
+      border: 1px solid light-dark(#9c9885, #777568);
+      border-radius: 8px;
+      box-shadow: 0 18px 50px light-dark(#00000033, #00000088);
+      background-image: repeating-linear-gradient(0deg, transparent, transparent 23px, light-dark(#dce5ed, #3a403a) 24px);
+    }
+    #pmm-workspace .pmm-modal.is-open { display: block; }
+    #pmm-workspace .pmm-modal-head { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+    #pmm-workspace .pmm-close { padding: 6px 10px; color: inherit; background: transparent; border: 1px solid currentColor; }
+    #pmm-workspace .pmm-calc { margin: 18px 0 0; font-family: "Cascadia Mono", Consolas, monospace; white-space: pre-wrap; line-height: 24px; }
+    #pmm-workspace .pmm-layout-wrap { position: relative; }
+    @media (max-width: 720px) {
+      #pmm-workspace .pmm-topbar { align-items: flex-start; flex-direction: column; }
+      #pmm-workspace .pmm-layout { grid-template-columns: 1fr; }
+      #pmm-workspace .pmm-left { border-right: 0; border-bottom: 1px solid light-dark(#cbd4dc, #364552); }
+      #pmm-workspace .pmm-input-grid { grid-template-columns: 1fr; }
+      #pmm-workspace .pmm-chart { height: 300px; }
+      #pmm-workspace .pmm-table-wrap { overflow-x: auto; }
+    }
+    @media print {
+      #pmm-workspace .pmm-topbar,
+      #pmm-workspace .pmm-layout { display: none; }
+      #pmm-workspace .pmm-modal { display: block; position: static; border: 0; box-shadow: none; }
+      #pmm-workspace .pmm-close { display: none; }
+    }
+  </style>
+
+  <header class="pmm-topbar">
+    <div><span class="pmm-brand">PMM Engine</span><span class="pmm-subtitle">20 × 30 in · ACI 318-19</span></div>
+    <div class="pmm-actions">
+      <button type="button" id="pmm-run">Run Analysis</button>
+      <button type="button" id="pmm-print">Print Calculation</button>
+    </div>
+  </header>
+
+  <div class="pmm-layout-wrap">
+    <main class="pmm-layout">
+      <section class="pmm-left" aria-labelledby="pmm-section-title">
+        <h2 id="pmm-section-title">Section & assumptions</h2>
+        <div class="pmm-section-figure">
+          <svg viewBox="0 0 360 320" role="img" aria-label="20 inch wide by 30 inch deep reinforced concrete section with fourteen perimeter bars">
+            <defs><pattern id="pmm-concrete" width="12" height="12" patternUnits="userSpaceOnUse"><circle cx="2" cy="3" r="1" fill="currentColor" opacity=".14"/><circle cx="9" cy="8" r=".8" fill="currentColor" opacity=".12"/></pattern></defs>
+            <rect x="95" y="27" width="170" height="255" rx="2" fill="url(#pmm-concrete)" stroke="currentColor" stroke-width="2"/>
+            <rect x="120.5" y="52.5" width="119" height="204" rx="2" fill="none" stroke="currentColor" stroke-width="1.6" opacity=".65"/>
+            <g fill="var(--viz-series-2)" stroke="currentColor" stroke-width="1">
+              <circle cx="120.5" cy="52.5" r="6"/><circle cx="160.2" cy="52.5" r="6"/><circle cx="199.8" cy="52.5" r="6"/><circle cx="239.5" cy="52.5" r="6"/>
+              <circle cx="239.5" cy="103.5" r="6"/><circle cx="239.5" cy="154.5" r="6"/><circle cx="239.5" cy="205.5" r="6"/>
+              <circle cx="239.5" cy="256.5" r="6"/><circle cx="199.8" cy="256.5" r="6"/><circle cx="160.2" cy="256.5" r="6"/><circle cx="120.5" cy="256.5" r="6"/>
+              <circle cx="120.5" cy="205.5" r="6"/><circle cx="120.5" cy="154.5" r="6"/><circle cx="120.5" cy="103.5" r="6"/>
+            </g>
+            <g fill="currentColor" font-size="12" font-family="inherit">
+              <text x="180" y="18" text-anchor="middle">20 in</text><text x="180" y="308" text-anchor="middle">14–#8 · As = 11.06 in²</text>
+              <text x="78" y="157" text-anchor="middle" transform="rotate(-90 78 157)">30 in</text>
+              <text x="274" y="50">#4 tie</text><text x="274" y="67">2 in clear</text>
+            </g>
+            <g stroke="currentColor" stroke-width="1" opacity=".65"><path d="M95 22v-8m170 8v-8M95 16h170M89 27h-9m9 255h-9M83 27v255"/></g>
+          </svg>
+        </div>
+        <div class="pmm-assumptions">
+          <h3>Design inputs</h3>
+          <div class="pmm-input-grid">
+            <div class="pmm-input-row"><span>Concrete f′c</span><span class="pmm-value">4.0 ksi</span></div>
+            <div class="pmm-input-row"><span>Steel fy</span><span class="pmm-value">60 ksi</span></div>
+            <div class="pmm-input-row"><span>Clear cover</span><span class="pmm-value">2.0 in</span></div>
+            <div class="pmm-input-row"><span>Ties</span><span class="pmm-value">#4</span></div>
+            <div class="pmm-input-row"><span>Longitudinal bars</span><span class="pmm-value">#8</span></div>
+            <div class="pmm-input-row"><span>Max spacing</span><span class="pmm-value">6.0 in</span></div>
+            <div class="pmm-input-row"><span>Bar centerline</span><span class="pmm-value">3.0 in</span></div>
+            <div class="pmm-input-row"><span>Reinforcement ratio</span><span class="pmm-value">1.843%</span></div>
+          </div>
+          <p class="pmm-note">Whitney block · tied-member φ · compression positive · direct 5° biaxial contours</p>
+        </div>
+      </section>
+
+      <section class="pmm-right" aria-labelledby="pmm-capacity-title">
+        <h2 id="pmm-capacity-title">Factored capacity</h2>
+        <div class="pmm-tabs" role="group" aria-label="Capacity plot">
+          <button type="button" data-view="pmm" aria-pressed="true">Mx–My @ Pu</button>
+          <button type="button" data-view="pmx" aria-pressed="false">P–Mx</button>
+          <button type="button" data-view="pmy" aria-pressed="false">P–My</button>
+          <button type="button" data-view="three" aria-pressed="false">3D PMM</button>
+        </div>
+        <div class="pmm-chart" id="pmm-chart" aria-live="polite"></div>
+        <div class="pmm-table-title"><h3>Factored demand checks</h3><span id="pmm-run-state" class="pmm-ok">3 / 3 OK</span></div>
+        <div class="pmm-table-wrap">
+          <table aria-label="Factored demand checks">
+            <thead><tr><th>Load</th><th>Pu</th><th>Mux</th><th>Muy</th><th>DCR</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr data-load="LC-1"><td>LC-1</td><td>500</td><td>300</td><td>100</td><td>0.551</td><td class="pmm-ok">OK</td></tr>
+              <tr data-load="LC-2"><td>LC-2</td><td>900</td><td>350</td><td>180</td><td>0.825</td><td class="pmm-ok">OK</td></tr>
+              <tr data-load="LC-3"><td>LC-3</td><td>−100</td><td>150</td><td>−80</td><td>0.375</td><td class="pmm-ok">OK</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <section class="pmm-modal" id="pmm-calc-modal" aria-label="Printable calculation preview">
+      <div class="pmm-modal-head"><h2>PMM ENGINE — SECTION STRENGTH CALCULATION</h2><button type="button" class="pmm-close" id="pmm-close">Close</button></div>
+      <div class="pmm-calc">ACI 318-19  |  US customary units  |  Compression positive
+
+1. GIVEN
+   b = 20.000 in                         h = 30.000 in
+   f′c = 4.000 ksi                       fy = 60.000 ksi
+   Longitudinal bars = #8                Ties = #4
+   Clear cover = 2.000 in                smax = 6.000 in
+
+2. SECTION AND BAR LAYOUT
+   cbar = cover + dtie + dbar/2
+        = 2.000 + 0.500 + 1.000/2 = 3.000 in
+
+   nh = ceil[(20 − 2(3))/6] + 1 = 4 bars per horizontal face
+   nv = ceil[(30 − 2(3))/6] + 1 = 5 bars per vertical face
+   n  = 2nh + 2(nv − 2) = 14 unique perimeter bars
+
+   Ag  = bh = 20(30) = 600.000 in²
+   Ast = 14(0.79) = 11.060 in²
+   ρg  = Ast/Ag = 0.01843 = 1.843%
+
+3. SECTIONAL STRENGTH
+   εcu = 0.003
+   Concrete block stress = 0.85 f′c;  a = β1 c
+   fs = clamp(Es εs, −fy, +fy), Es = 29,000 ksi
+   Solve ΣF = P and integrate Mx = ΣFy, My = −ΣFx.
+   Apply ACI Table 21.2.2 φ from extreme net tensile strain.
+   Tied-member axial limit = 0.80 φ P0.
+
+4. FACTORED DEMAND CHECKS
+   DCR = |Mu| / radial PMM capacity at the same Pu and direction
+
+   LC-1  Pu= 500.0 kip   Mux=300.0   Muy= 100.0   DCR=0.551  OK
+   LC-2  Pu= 900.0 kip   Mux=350.0   Muy= 180.0   DCR=0.825  OK
+   LC-3  Pu=-100.0 kip   Mux=150.0   Muy=−80.0    DCR=0.375  OK
+
+5. SCOPE
+   Section strength only. Slenderness, second-order effects, shear,
+   deep-beam strut-and-tie, anchorage, and detailing are excluded.</div>
+    </section>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+  <script>
+    (() => {
+      const root = document.getElementById('pmm-workspace');
+      const chart = root.querySelector('#pmm-chart');
+      const modal = root.querySelector('#pmm-calc-modal');
+      const contour = [[0,-392.1],[174.6,-349.1],[344.5,-271.2],[476.2,-176.2],[543.6,-105.2],[581.8,-50.1],[599,0],[581.8,50.1],[543.6,105.2],[476.2,176.2],[344.5,271.2],[174.6,349.1],[0,392.1],[-174.6,349.1],[-344.5,271.2],[-476.2,176.2],[-543.6,105.2],[-581.8,50.1],[-599,0],[-581.8,-50.1],[-543.6,-105.2],[-476.2,-176.2],[-344.5,-271.2],[-174.6,-349.1],[0,-392.1]];
+      const pmx = [[0,-597],[10,-589],[75,-535],[827,332],[752,519],[105,-510],[14,-586],[0,-597],[-14,-586],[-105,-510],[-752,519],[-827,332],[-75,-535],[-10,-589],[0,-597]];
+      const pmy = [[0,-597],[-7,-589],[-50,-535],[-524,319],[-477,506],[-70,-510],[-9,-586],[0,-597],[9,-586],[70,-510],[477,506],[524,319],[50,-535],[7,-589],[0,-597]];
+      const onion = {
+        '-400': [[0,-142.5],[136.7,-130.5],[161.1,-123.8],[179.7,-115.5],[187.2,-109.7],[194.1,-102.5],[202.4,-90.3],[208,-78.1],[211.7,-55.5],[217,0],[211.7,55.5],[208,78.1],[202.4,90.3],[194.1,102.5],[187.2,109.7],[179.7,115.5],[161.1,123.8],[136.7,130.5],[0,142.5],[-136.7,130.5],[-161.1,123.8],[-179.7,115.5],[-187.2,109.7],[-194.1,102.5],[-202.4,90.3],[-208,78.1],[-211.7,55.5],[-217,0],[-211.7,-55.5],[-208,-78.1],[-202.4,-90.3],[-194.1,-102.5],[-187.2,-109.7],[-179.7,-115.5],[-161.1,-123.8],[-136.7,-130.5]],
+        '0': [[0,-382.1],[176.3,-361.3],[309.9,-321.3],[392.6,-281.2],[458.1,-239.7],[502.6,-197.4],[537,-155.9],[570,-102.1],[588.7,-54],[602.6,0],[588.7,54],[570,102.1],[537,155.9],[502.6,197.4],[458.1,239.7],[392.6,281.2],[309.9,321.3],[176.3,361.3],[0,382.1],[-176.3,361.3],[-309.9,321.3],[-392.6,281.2],[-458.1,239.7],[-502.6,197.4],[-537,155.9],[-570,102.1],[-588.7,54],[-602.6,0],[-588.7,-54],[-570,-102.1],[-537,-155.9],[-502.6,-197.4],[-458.1,-239.7],[-392.6,-281.2],[-309.9,-321.3],[-176.3,-361.3]],
+        '400': [[0,-507.6],[146.8,-436.8],[282.5,-366.5],[395.1,-296.9],[486.6,-239.8],[572.2,-184.2],[645.5,-134.1],[703.6,-89],[762.3,-44.4],[835.7,0],[762.3,44.4],[703.6,89],[645.5,134.1],[572.2,184.2],[486.6,239.8],[395.1,296.9],[282.5,366.5],[146.8,436.8],[0,507.6],[-146.8,436.8],[-282.5,366.5],[-395.1,296.9],[-486.6,239.8],[-572.2,184.2],[-645.5,134.1],[-703.6,89],[-762.3,44.4],[-835.7,0],[-762.3,-44.4],[-703.6,-89],[-645.5,-134.1],[-572.2,-184.2],[-486.6,-239.8],[-395.1,-296.9],[-282.5,-366.5],[-146.8,-436.8]],
+        '800': [[0,-413],[121.9,-383.3],[236.1,-341.1],[352,-283.1],[460.8,-209.7],[524.9,-153.8],[566.5,-109.6],[597.5,-69.9],[619.1,-33.3],[631.2,0],[619.1,33.3],[597.5,69.9],[566.5,109.6],[524.9,153.8],[460.8,209.7],[352,283.1],[236.1,341.1],[121.9,383.3],[0,413],[-121.9,383.3],[-236.1,341.1],[-352,283.1],[-460.8,209.7],[-524.9,153.8],[-566.5,109.6],[-597.5,69.9],[-619.1,33.3],[-631.2,0],[-619.1,-33.3],[-597.5,-69.9],[-566.5,-109.6],[-524.9,-153.8],[-460.8,-209.7],[-352,-283.1],[-236.1,-341.1],[-121.9,-383.3]],
+        '1200': [[0,-299.3],[106.2,-284.8],[210.5,-248.1],[286.5,-210.2],[338.2,-175.9],[380.5,-138.9],[417,-97.9],[439.8,-61.5],[451.1,-31],[458.8,0],[451.1,31],[439.8,61.5],[417,97.9],[380.5,138.9],[338.2,175.9],[286.5,210.2],[210.5,248.1],[106.2,284.8],[0,299.3],[-106.2,284.8],[-210.5,248.1],[-286.5,210.2],[-338.2,175.9],[-380.5,138.9],[-417,97.9],[-439.8,61.5],[-451.1,31],[-458.8,0],[-451.1,-31],[-439.8,-61.5],[-417,-97.9],[-380.5,-138.9],[-338.2,-175.9],[-286.5,-210.2],[-210.5,-248.1],[-106.2,-284.8]],
+        '1350': [[0,-230.6],[98.8,-217.9],[183,-188.6],[228.3,-163.6],[261.5,-140.9],[290.3,-118],[314.7,-92.6],[335.2,-59.5],[346.9,-29.9],[355,0],[346.9,29.9],[335.2,59.5],[314.7,92.6],[290.3,118],[261.5,140.9],[228.3,163.6],[183,188.6],[98.8,217.9],[0,230.6],[-98.8,217.9],[-183,188.6],[-228.3,163.6],[-261.5,140.9],[-290.3,118],[-314.7,92.6],[-335.2,59.5],[-346.9,29.9],[-355,0],[-346.9,-29.9],[-335.2,-59.5],[-314.7,-92.6],[-290.3,-118],[-261.5,-140.9],[-228.3,-163.6],[-183,-188.6],[-98.8,-217.9]]
+      };
+      let view = 'pmm';
+      let yaw = -0.72;
+      let pitch = 0.52;
+
+      function draw() {
+        chart.replaceChildren();
+        const width = Math.max(320, chart.clientWidth || 460);
+        const height = chart.clientHeight || 345;
+        const margin = {top: 18, right: 24, bottom: 50, left: 66};
+        const svg = d3.select(chart).append('svg').attr('viewBox', `0 0 ${width} ${height}`);
+        if (view === 'three') { drawThree(svg, width, height); return; }
+        const data = view === 'pmm' ? contour : (view === 'pmx' ? pmx : pmy);
+        const xExtent = d3.extent(data, d => d[0]);
+        const yExtent = d3.extent(data, d => d[1]);
+        if (view === 'pmm') { xExtent[0] = Math.min(xExtent[0], 350); xExtent[1] = Math.max(xExtent[1], 350); yExtent[0] = Math.min(yExtent[0], 180); yExtent[1] = Math.max(yExtent[1], 180); }
+        const xPad = Math.max(1, (xExtent[1]-xExtent[0]) * .08);
+        const yPad = Math.max(1, (yExtent[1]-yExtent[0]) * .08);
+        const x = d3.scaleLinear().domain([xExtent[0]-xPad,xExtent[1]+xPad]).range([margin.left,width-margin.right]);
+        const y = d3.scaleLinear().domain([yExtent[0]-yPad,yExtent[1]+yPad]).range([height-margin.bottom,margin.top]);
+        svg.append('rect').attr('data-chart-frame','').attr('x',margin.left).attr('y',margin.top).attr('width',width-margin.left-margin.right).attr('height',height-margin.top-margin.bottom).attr('fill','none').attr('stroke','var(--border)');
+        svg.append('g').attr('transform',`translate(0,${height-margin.bottom})`).call(d3.axisBottom(x).ticks(width < 420 ? 4 : 6)).call(g=>g.selectAll('text').attr('fill','var(--foreground)')).call(g=>g.selectAll('path,line').attr('stroke','var(--border)'));
+        svg.append('g').attr('transform',`translate(${margin.left},0)`).call(d3.axisLeft(y).ticks(5)).call(g=>g.selectAll('text').attr('fill','var(--foreground)')).call(g=>g.selectAll('path,line').attr('stroke','var(--border)'));
+        svg.append('path').datum(data).attr('fill','none').attr('stroke','var(--viz-series-1)').attr('stroke-width',2.4).attr('d',d3.line().x(d=>x(d[0])).y(d=>y(d[1])));
+        if (view === 'pmm') {
+          svg.append('line').attr('x1',x(0)).attr('y1',y(0)).attr('x2',x(350)).attr('y2',y(180)).attr('stroke','var(--viz-series-2)').attr('stroke-width',1.5);
+          svg.append('circle').attr('cx',x(350)).attr('cy',y(180)).attr('r',5).attr('fill','var(--viz-series-2)').attr('stroke','var(--foreground)');
+          svg.append('text').attr('x',x(350)+8).attr('y',y(180)-8).attr('fill','var(--foreground)').attr('font-size',12).text('LC-2 · DCR 0.825');
+        }
+        svg.append('text').attr('class','axis-title').attr('data-axis','x').attr('x',(margin.left+width-margin.right)/2).attr('y',height-8).attr('text-anchor','middle').attr('fill','var(--foreground)').attr('font-size',12).text(view === 'pmm' ? 'Mx (kip-ft)' : (view === 'pmx' ? 'Mx (kip-ft)' : 'My (kip-ft)'));
+        svg.append('text').attr('class','axis-title').attr('data-axis','y').attr('transform','rotate(-90)').attr('x',-(margin.top+height-margin.bottom)/2).attr('y',16).attr('text-anchor','middle').attr('fill','var(--foreground)').attr('font-size',12).text(view === 'pmm' ? 'My (kip-ft)' : 'Pu (kip)');
+        svg.append('text').attr('x',margin.left+8).attr('y',margin.top+16).attr('fill','var(--muted-foreground)').attr('font-size',12).text(view === 'pmm' ? 'LC-2 contour at Pu = 900 kip' : 'ACI factored interaction envelope');
+      }
+
+      function drawThree(svg, width, height) {
+        const center = [width * .5, height * .54];
+        const scale = Math.min(width / 1800, height / 2300);
+        const project = ([mx,my,p]) => {
+          const x1 = mx * Math.cos(yaw) - my * Math.sin(yaw);
+          const y1 = mx * Math.sin(yaw) + my * Math.cos(yaw);
+          const y2 = y1 * Math.cos(pitch) - p * Math.sin(pitch);
+          return [center[0] + x1 * scale, center[1] - y2 * scale];
+        };
+        const layers = Object.entries(onion).map(([p, ring]) => ({p:+p, points:ring.map(d=>[d[0],d[1],+p])}));
+        const line = d3.line().x(d=>project(d)[0]).y(d=>project(d)[1]).curve(d3.curveLinearClosed);
+        const mesh = svg.append('g');
+        for (let index=0; index<36; index+=3) {
+          const longitudinal = layers.map(layer => layer.points[index]);
+          mesh.append('path').datum(longitudinal).attr('d',d3.line().x(d=>project(d)[0]).y(d=>project(d)[1])).attr('fill','none').attr('stroke','var(--border)').attr('stroke-width',1);
+        }
+        layers.forEach((layer,index) => {
+          mesh.append('path').datum(layer.points).attr('d',line).attr('fill',index === 2 ? 'color-mix(in srgb, var(--viz-series-1) 10%, transparent)' : 'none').attr('stroke','var(--viz-series-1)').attr('stroke-width',index === 2 ? 2.4 : 1.5).attr('opacity',.55 + index*.07);
+          const labelPoint = project(layer.points[9]);
+          mesh.append('text').attr('x',labelPoint[0]+5).attr('y',labelPoint[1]).attr('fill','var(--foreground)').attr('font-size',11).text(`P=${layer.p}`);
+        });
+        const axes = [[[-900,0,-450],[950,0,-450],'Mx'],[[0,-600,-450],[0,600,-450],'My'],[[0,0,-500],[0,0,1450],'Pu']];
+        axes.forEach(axis => {
+          const a=project(axis[0]), b=project(axis[1]);
+          svg.append('line').attr('x1',a[0]).attr('y1',a[1]).attr('x2',b[0]).attr('y2',b[1]).attr('stroke','var(--foreground)').attr('stroke-width',1.2);
+          svg.append('text').attr('x',b[0]+5).attr('y',b[1]-5).attr('fill','var(--foreground)').attr('font-size',12).text(axis[2]);
+        });
+        svg.append('text').attr('x',16).attr('y',20).attr('fill','var(--muted-foreground)').attr('font-size',12).text('3D onion boundary · 10° display mesh · drag to rotate');
+        svg.style('cursor','grab').call(d3.drag().on('drag', event => { yaw += event.dx * .01; pitch = Math.max(-1.2,Math.min(1.2,pitch-event.dy*.01)); draw(); }));
+      }
+
+      root.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => {
+        view = button.dataset.view;
+        root.querySelectorAll('[data-view]').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+        draw();
+      }));
+      root.querySelector('#pmm-run').addEventListener('click', () => {
+        const state = root.querySelector('#pmm-run-state');
+        state.textContent = 'Running…';
+        window.setTimeout(() => { state.textContent = '3 / 3 OK · updated now'; draw(); }, 450);
+      });
+      root.querySelector('#pmm-print').addEventListener('click', () => modal.classList.add('is-open'));
+      root.querySelector('#pmm-close').addEventListener('click', () => modal.classList.remove('is-open'));
+      new ResizeObserver(draw).observe(chart);
+      draw();
+    })();
+  </script>
+</div>

@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "section": {
+    "name": "20x30 starter section",
+    "width_in": 20.0,
+    "depth_in": 30.0,
+    "fc_ksi": 4.0,
+    "fy_ksi": 60.0,
+    "clear_cover_in": 2.0,
+    "tie_bar_size": "#4",
+    "longitudinal_bar_size": "#8",
+    "maximum_spacing_in": 6.0
+  },
+  "analysis": {
+    "angle_step_deg": 5.0
+  },
+  "demands": [
+    {"label": "LC-1", "pu_kip": 500.0, "mux_kip_ft": 300.0, "muy_kip_ft": 100.0},
+    {"label": "LC-2", "pu_kip": 900.0, "mux_kip_ft": 350.0, "muy_kip_ft": 180.0},
+    {"label": "LC-3", "pu_kip": -100.0, "mux_kip_ft": 150.0, "muy_kip_ft": -80.0}
+  ]
+}

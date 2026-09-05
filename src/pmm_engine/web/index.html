@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PMM Engine</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div><strong>PMM Engine</strong><span id="project-title">20 × 30 in · ACI 318-19</span></div>
+    <div class="actions">
+      <span id="run-state" role="status">Ready</span>
+      <button type="button" id="run-analysis" class="primary">Run Analysis</button>
+      <button type="button" id="print-calculation">Print Calculation</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <section class="left-panel">
+      <h1>Section & assumptions</h1>
+      <div class="section-view"><svg id="section-svg" role="img" aria-label="Reinforced concrete section preview"></svg></div>
+
+      <form id="section-inputs">
+        <div class="field"><label for="width">Width (in)</label><input id="width" type="number" min="1" step="0.25" value="20"></div>
+        <div class="field"><label for="depth">Depth (in)</label><input id="depth" type="number" min="1" step="0.25" value="30"></div>
+        <div class="field"><label for="fc">f′c (ksi)</label><input id="fc" type="number" min="0.1" step="0.1" value="4"></div>
+        <div class="field"><label for="fy">fy (ksi)</label><input id="fy" type="number" min="1" step="1" value="60"></div>
+        <div class="field"><label for="cover">Clear cover (in)</label><input id="cover" type="number" min="0" step="0.125" value="2"></div>
+        <div class="field"><label for="tie-size">Tie size</label><select id="tie-size"><option>#3</option><option selected>#4</option><option>#5</option><option>#6</option></select></div>
+        <div class="field"><label for="bar-size">Longitudinal bar</label><select id="bar-size"><option>#5</option><option>#6</option><option>#7</option><option selected>#8</option><option>#9</option><option>#10</option><option>#11</option><option>#14</option><option>#18</option></select></div>
+        <div class="field"><label for="spacing">Max spacing (in)</label><input id="spacing" type="number" min="0.5" step="0.25" value="6"></div>
+        <div class="field"><label for="dcr-step">DCR angle step</label><select id="dcr-step"><option value="10">10° · fast</option><option value="5" selected>5° · standard</option><option value="2">2° · refined</option></select></div>
+      </form>
+
+      <div class="section-summary" id="section-summary"></div>
+      <div class="scope-note">Whitney block · tied-member φ · compression positive. Section strength does not include slenderness, shear, or deep-beam strut-and-tie design.</div>
+    </section>
+
+    <section class="right-panel">
+      <div class="plot-head">
+        <h1>Factored capacity</h1>
+        <div class="view-tabs" role="group" aria-label="Capacity view">
+          <button type="button" data-view="pmm" aria-pressed="true">Mx–My @ Pu</button>
+          <button type="button" data-view="pmx" aria-pressed="false">P–Mx</button>
+          <button type="button" data-view="pmy" aria-pressed="false">P–My</button>
+          <button type="button" data-view="three" aria-pressed="false">3D PMM</button>
+        </div>
+      </div>
+      <div id="capacity-chart" aria-live="polite"></div>
+
+      <div class="demand-head"><h2>Factored demand checks</h2><button type="button" id="add-demand">Add load</button></div>
+      <div class="table-wrap">
+        <table id="demand-table">
+          <thead><tr><th>Load</th><th>Pu (kip)</th><th>Mux (kip-ft)</th><th>Muy (kip-ft)</th><th>DCR</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            <tr><td><input value="LC-1" aria-label="Load name"></td><td><input type="number" value="500"></td><td><input type="number" value="300"></td><td><input type="number" value="100"></td><td class="result">—</td><td class="result">—</td><td><button type="button" class="remove" aria-label="Remove load">×</button></td></tr>
+            <tr><td><input value="LC-2" aria-label="Load name"></td><td><input type="number" value="900"></td><td><input type="number" value="350"></td><td><input type="number" value="180"></td><td class="result">—</td><td class="result">—</td><td><button type="button" class="remove" aria-label="Remove load">×</button></td></tr>
+            <tr><td><input value="LC-3" aria-label="Load name"></td><td><input type="number" value="-100"></td><td><input type="number" value="150"></td><td><input type="number" value="-80"></td><td class="result">—</td><td class="result">—</td><td><button type="button" class="remove" aria-label="Remove load">×</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="calculation-dialog">
+    <div class="dialog-head"><h1>Engineering calculation</h1><div><button type="button" id="print-dialog">Print</button><button type="button" id="close-dialog">Close</button></div></div>
+    <pre id="calculation-text"></pre>
+  </dialog>
+
+  <template id="demand-row-template"><tr><td><input value="LC" aria-label="Load name"></td><td><input type="number" value="0"></td><td><input type="number" value="0"></td><td><input type="number" value="0"></td><td class="result">—</td><td class="result">—</td><td><button type="button" class="remove" aria-label="Remove load">×</button></td></tr></template>
+  <script src="/app.js"></script>
+</body>
+</html>
