@@ -41,3 +41,8 @@ workbook to call `/api/v1/analyze` on the intranet host. The module uses built-i
 Windows WinHTTP, explicit timeouts, and the current Windows credentials. The
 workbook still needs a reviewed JSON parser and range-mapping layer; see
 `docs/deployment.md` before treating this transport as production-ready.
+
+The same module can save a print-ready report by posting the calculation JSON
+to `/api/v1/report` through `SavePMMReportJson`. Add an optional report member
+such as `{"selected_load_label": "LC-2"}` under the top-level `report` object
+to choose the load used for the constant-Pu and strain/stress pages.

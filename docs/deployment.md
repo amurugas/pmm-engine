@@ -26,10 +26,19 @@ Excel workbook
   -> POST /api/v1/analyze (versioned JSON over intranet HTTPS)
   -> IIS/reverse proxy with Windows authentication
   -> warm PMM API workers
-  -> compiled/cached section kernel
+  -> fresh sectional analysis in the warm worker
   -> JSON response: capacities, DCRs, warnings, plots, calculation report
   -> Excel bulk-writes result arrays and refreshes charts
 ```
+
+The POST endpoint is headless: it does not create a browser window, load web
+assets, or render charts. The HTML viewer is only served when someone opens it
+with a browser. Excel requests omit the optional 3D onion surface.
+
+`POST /api/v1/report` runs the same versioned calculation and returns a PDF
+attachment. Report generation is separate from normal Excel analysis, so PDF
+layout work is incurred only when the workbook or viewer explicitly requests
+the printable report.
 
 The normal single-section request should be synchronous. Introduce asynchronous
 jobs only for large portfolio or batch runs that exceed an agreed response-time
@@ -58,21 +67,17 @@ adapter using the same request structure. Production should add formal request
 schemas, generated API documentation, authentication integration, metrics,
 and graceful worker restart.
 
-## Speed-critical cache design
+## Performance policy
 
-Do not cache only the complete Excel request. Use three keys:
+The current service deliberately performs a fresh calculation for every POST
+and retains no result cache. This keeps execution and audit behavior simple;
+the returned input hash still identifies the exact request. The Python worker
+stays warm, so imports and process startup are not repeated for each workbook.
 
-1. `geometry_hash`: normalized solids, voids, bars, units, and tolerances.
-2. `capacity_hash`: geometry hash plus materials, ACI edition, confinement, and
-   solver settings.
-3. `demand_hash`: capacity hash plus factored demands and requested outputs.
-
-Compile and cache geometry once. Cache the capacity surface independently from
-loads so changing load combinations does not regenerate the PMM boundary. A
-new demand table should usually require only radial intersection/refinement.
-
-Keep a per-worker memory LRU initially. Add a shared Redis or disk cache only
-if load testing shows the worker-local hit rate is insufficient.
+Introduce capacity-level caching only if representative office load testing
+shows it is necessary. If that threshold is reached, key cached data by the
+normalized geometry, materials, design-code settings, and solver tolerances—
+not by an unreviewed workbook filename or user-local path.
 
 ## Excel client
 

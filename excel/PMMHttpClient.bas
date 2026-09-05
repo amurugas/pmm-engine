@@ -33,6 +33,36 @@ Public Function PostPMMJson(ByVal Payload As String, Optional ByVal BaseUrl As S
     PostPMMJson = Request.ResponseText
 End Function
 
+Public Sub SavePMMReportJson(ByVal Payload As String, ByVal OutputPath As String, Optional ByVal BaseUrl As String = "")
+    Dim Request As Object
+    Dim Stream As Object
+    Dim Endpoint As String
+
+    If Len(BaseUrl) = 0 Then BaseUrl = DEFAULT_API_URL
+    Endpoint = BaseUrl & "/api/v1/report"
+
+    Set Request = CreateObject("WinHttp.WinHttpRequest.5.1")
+    Request.SetTimeouts 5000, 5000, 10000, 120000
+    Request.Open "POST", Endpoint, False
+    Request.SetRequestHeader "Content-Type", "application/json"
+    Request.SetRequestHeader "Accept", "application/pdf"
+    Request.SetRequestHeader "X-PMM-Client", "Excel-VBA"
+    Request.SetAutoLogonPolicy 0
+    Request.Send Payload
+
+    If Request.Status < 200 Or Request.Status >= 300 Then
+        Err.Raise vbObjectError + 2102, "SavePMMReportJson", _
+            "PMM report server returned HTTP " & Request.Status & ": " & Request.ResponseText
+    End If
+
+    Set Stream = CreateObject("ADODB.Stream")
+    Stream.Type = 1
+    Stream.Open
+    Stream.Write Request.ResponseBody
+    Stream.SaveToFile OutputPath, 2
+    Stream.Close
+End Sub
+
 Public Function PMMServerIsHealthy(Optional ByVal BaseUrl As String = "") As Boolean
     Dim Request As Object
     If Len(BaseUrl) = 0 Then BaseUrl = DEFAULT_API_URL

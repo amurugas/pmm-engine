@@ -1,7 +1,8 @@
 {
   "schema_version": 1,
   "section": {
-    "name": "20x30 starter section",
+    "beam_id": "B-1",
+    "shape": "rectangular",
     "width_in": 20.0,
     "depth_in": 30.0,
     "fc_ksi": 4.0,

@@ -8,6 +8,7 @@ end, command-line workflows, and a future interactive viewer.
 ## Implemented
 
 - Polygonal concrete regions and discrete longitudinal bars
+- Rectangular and circular section builders with automatic perimeter bar layouts
 - Analytical compression-block integration for convex shapes
 - Midpoint concrete-fiber integration using the same strain plane and materials
 - ACI 318-19 Whitney stress block and elastic-perfectly plastic steel
@@ -32,7 +33,7 @@ anchorage, and seismic checks are not implemented.
 - 3 in longitudinal-bar centerline offset
 - 14 bars, Ast = 11.06 in2, rho_g = 1.843%
 
-Clear cover, tie size, bar size, spacing, dimensions, f'c, and fy are variables.
+Clear cover, tie size, bar size, spacing, dimensions, section shape, f'c, and fy are variables.
 
 ## Coordinate and sign convention
 
@@ -70,11 +71,27 @@ request. Deployment guidance for an office of approximately 150 engineers is
 in `docs/deployment.md`; the speed and DXF plan is in
 `docs/performance_and_geometry.md`.
 
+The detailed handoff for the next development phase—chart readability,
+circular voids, DXF import, and material plots—is in
+`docs/next_session_plan.md`.
+
 The website's Advanced tab selects analytical shape or midpoint-fiber concrete
 integration, neutral-axis rotation increment, and 3D sampling. Whitney is the
 only implemented concrete law; nonlinear models are identified as planned and
 cannot be selected yet. The 3D surface is calculated on demand so normal 2D
 runs do not incur its sampling cost.
+
+The Basic tab switches between rectangular width/depth inputs and a circular
+diameter input. JSON and HTTP callers use `section.shape` (`rectangular` or
+`circular`); circular requests provide `section.diameter_in`.
+
+The `Strain & stress` capacity tab displays the closest solved controlling
+neutral-axis state for the selected load, including the section strain plane,
+Whitney equivalent stress block, and reinforcing-steel stress-strain response.
+`PDF Report` downloads a structured calculation report with inputs, section
+and reinforcement tables, demand checks, capacity diagrams, and the selected
+load response. The equivalent block is identified as a design idealization,
+not a constitutive concrete stress-strain curve.
 
 ## Shape versus fiber
 

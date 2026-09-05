@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from math import ceil
+from math import ceil, cos, pi, sin
 
 from .materials import SteelMaterial
 from .section import Rebar
@@ -112,6 +112,40 @@ def rectangular_perimeter_bars(
             label=f"{label_prefix}{index}",
         )
         for index, (x, y) in enumerate(coordinates, start=1)
+    )
+
+
+def circular_perimeter_bars(
+    *,
+    diameter: float,
+    centerline_cover: float,
+    maximum_spacing: float,
+    bar_area: float,
+    material: SteelMaterial,
+    label_prefix: str = "B",
+) -> tuple[Rebar, ...]:
+    """Place bars uniformly on a circular centerline ring."""
+
+    if diameter <= 0.0:
+        raise ValueError("Section diameter must be positive")
+    if centerline_cover <= 0.0:
+        raise ValueError("Centerline cover must be positive")
+    if 2.0 * centerline_cover >= diameter:
+        raise ValueError("Centerline cover leaves no valid reinforcing ring")
+    if maximum_spacing <= 0.0:
+        raise ValueError("Maximum bar spacing must be positive")
+
+    radius = diameter / 2.0 - centerline_cover
+    count = max(4, ceil(2.0 * pi * radius / maximum_spacing))
+    return tuple(
+        Rebar(
+            x=radius * cos(pi / 2.0 - 2.0 * pi * index / count),
+            y=radius * sin(pi / 2.0 - 2.0 * pi * index / count),
+            area=bar_area,
+            material=material,
+            label=f"{label_prefix}{index + 1}",
+        )
+        for index in range(count)
     )
 
 

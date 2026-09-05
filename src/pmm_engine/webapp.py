@@ -5,9 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import threading
 from time import perf_counter
-from collections import OrderedDict
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -25,35 +23,8 @@ ASSETS = {
 }
 
 
-class AnalysisCache:
-    """Small process-local LRU cache for repeated workbook/browser runs."""
-
-    def __init__(self, maximum_entries: int = 16) -> None:
-        self.maximum_entries = maximum_entries
-        self._items: OrderedDict[str, dict[str, Any]] = OrderedDict()
-        self._lock = threading.Lock()
-
-    def calculate(
-        self, payload: dict[str, Any]
-    ) -> tuple[dict[str, Any], bool, str]:
-        encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
-        key = hashlib.sha256(encoded).hexdigest()
-        with self._lock:
-            if key in self._items:
-                result = self._items.pop(key)
-                self._items[key] = result
-                return result, True, key
-        result = calculate_payload(payload)
-        with self._lock:
-            self._items[key] = result
-            while len(self._items) > self.maximum_entries:
-                self._items.popitem(last=False)
-        return result, False, key
-
-
 class PMMRequestHandler(BaseHTTPRequestHandler):
     server_version = "PMMEngine/0.1"
-    cache = AnalysisCache()
 
     def do_GET(self) -> None:  # noqa: N802
         if self.path == "/api/health":
@@ -89,7 +60,7 @@ class PMMRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_POST(self) -> None:  # noqa: N802
-        if self.path not in {"/api/analyze", "/api/v1/analyze"}:
+        if self.path not in {"/api/analyze", "/api/v1/analyze", "/api/v1/report"}:
             self.send_error(HTTPStatus.NOT_FOUND)
             return
         try:
@@ -98,17 +69,45 @@ class PMMRequestHandler(BaseHTTPRequestHandler):
                 raise ValueError("Request body must be between 1 byte and 2 MB")
             payload = json.loads(self.rfile.read(length))
             started = perf_counter()
-            result, cached, input_hash = self.cache.calculate(payload)
+            encoded = json.dumps(
+                payload, sort_keys=True, separators=(",", ":")
+            ).encode()
+            input_hash = hashlib.sha256(encoded).hexdigest()
+            if self.path == "/api/v1/report":
+                from .report import build_pdf_report
+
+                report_payload = dict(payload)
+                report_analysis = dict(report_payload.get("analysis", {}))
+                report_analysis["include_onion"] = False
+                report_analysis["include_response_diagrams"] = True
+                report_payload["analysis"] = report_analysis
+                result = calculate_payload(report_payload)
+                selected_label = report_payload.get("report", {}).get(
+                    "selected_load_label"
+                )
+                content = build_pdf_report(
+                    result,
+                    selected_load_label=selected_label,
+                    input_hash=input_hash,
+                )
+                filename = "pmm-section-capacity-report.pdf"
+                self._send_bytes(
+                    content,
+                    content_type="application/pdf",
+                    filename=filename,
+                )
+                return
+            result = calculate_payload(payload)
             elapsed_ms = 1000.0 * (perf_counter() - started)
             self._send_json(
                 {
                     "ok": True,
-                    "cached": cached,
+                    "cached": False,
                     "meta": {
                         "api_version": "v1",
                         "engine_version": ENGINE_VERSION,
                         "input_sha256": input_hash,
-                        "cached": cached,
+                        "cached": False,
                         "server_ms": elapsed_ms,
                     },
                     "result": result,
@@ -123,6 +122,17 @@ class PMMRequestHandler(BaseHTTPRequestHandler):
                 {"ok": False, "error": f"Analysis failed: {error}"},
                 status=HTTPStatus.INTERNAL_SERVER_ERROR,
             )
+
+    def _send_bytes(
+        self, content: bytes, *, content_type: str, filename: str
+    ) -> None:
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(content)))
+        self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(content)
 
     def _send_json(self, value: dict[str, Any], status: HTTPStatus = HTTPStatus.OK) -> None:
         content = json.dumps(value, allow_nan=False, separators=(",", ":")).encode()

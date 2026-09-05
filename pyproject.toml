@@ -9,14 +9,14 @@ description = "Sectional axial force and biaxial bending analysis for reinforced
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "PMM Engine contributors" }]
-dependencies = []
+dependencies = ["reportlab>=4.4"]
 
 [project.scripts]
 pmm-engine = "pmm_engine.excel_bridge:main"
 pmm-web = "pmm_engine.webapp:main"
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "pypdf>=6", "pymupdf>=1.28"]
 geometry = ["shapely>=2.1"]
 excel = ["xlwings>=0.33"]
 dxf = ["ezdxf>=1.4"]

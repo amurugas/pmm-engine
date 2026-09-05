@@ -12,7 +12,7 @@
     <div class="actions">
       <span id="run-state" role="status">Ready</span>
       <button type="button" id="run-analysis" class="primary">Run Analysis</button>
-      <button type="button" id="print-calculation">Print Calculation</button>
+      <button type="button" id="print-calculation">PDF Report</button>
     </div>
   </header>
 
@@ -27,8 +27,11 @@
       </div>
       <form id="section-inputs">
         <div id="basic-settings" class="settings-panel" role="tabpanel">
-          <div class="field"><label for="width">Width (in)</label><input id="width" type="number" min="1" step="0.25" value="20"></div>
-          <div class="field"><label for="depth">Depth (in)</label><input id="depth" type="number" min="1" step="0.25" value="30"></div>
+          <div class="field field-wide"><label for="beam-id">Beam ID</label><input id="beam-id" type="text" value="B-1" autocomplete="off"></div>
+          <div class="field field-wide"><label for="section-shape">Section shape</label><select id="section-shape"><option value="rectangular" selected>Rectangular</option><option value="circular">Circular</option></select></div>
+          <div class="field" id="width-field"><label for="width">Width (in)</label><input id="width" type="number" min="1" step="0.25" value="20"></div>
+          <div class="field" id="depth-field"><label for="depth">Depth (in)</label><input id="depth" type="number" min="1" step="0.25" value="30"></div>
+          <div class="field field-wide" id="diameter-field" hidden><label for="diameter">Diameter (in)</label><input id="diameter" type="number" min="1" step="0.25" value="24"></div>
           <div class="field"><label for="fc">f′c (ksi)</label><input id="fc" type="number" min="0.1" step="0.1" value="4"></div>
           <div class="field"><label for="fy">fy (ksi)</label><input id="fy" type="number" min="1" step="1" value="60"></div>
           <div class="field"><label for="cover">Clear cover (in)</label><input id="cover" type="number" min="0" step="0.125" value="2"></div>
@@ -59,9 +62,26 @@
           <button type="button" data-view="pmx" aria-pressed="false">P–Mx</button>
           <button type="button" data-view="pmy" aria-pressed="false">P–My</button>
           <button type="button" data-view="three" aria-pressed="false">3D PMM</button>
+          <button type="button" data-view="response" aria-pressed="false">Strain & stress</button>
         </div>
       </div>
-      <div id="capacity-chart" aria-live="polite"></div>
+      <div class="chart-toolbar" aria-label="Chart controls">
+        <label id="response-load-control" class="response-load-control" hidden>
+          Load case
+          <select id="response-load" aria-label="Load case for strain and stress diagrams"></select>
+        </label>
+        <label id="three-zoom-control" class="zoom-control" hidden>
+          3D zoom
+          <input id="three-zoom" type="range" min="0.6" max="2.5" step="0.05" value="1" aria-label="3D plot zoom" title="100% fits the full PMM extents">
+          <output id="three-zoom-value" for="three-zoom">100%</output>
+        </label>
+        <button type="button" id="reset-view">Reset view</button>
+        <button type="button" id="export-png">Export PNG</button>
+      </div>
+      <div class="chart-shell">
+        <div id="capacity-chart" aria-live="polite"></div>
+        <div id="chart-tooltip" role="tooltip" hidden></div>
+      </div>
 
       <div class="demand-head"><h2>Factored demand checks</h2><button type="button" id="add-demand">Add load</button></div>
       <div class="table-wrap">
@@ -76,11 +96,6 @@
       </div>
     </section>
   </main>
-
-  <dialog id="calculation-dialog">
-    <div class="dialog-head"><h1>Engineering calculation</h1><div><button type="button" id="print-dialog">Print</button><button type="button" id="close-dialog">Close</button></div></div>
-    <pre id="calculation-text"></pre>
-  </dialog>
 
   <template id="demand-row-template"><tr><td><input value="LC" aria-label="Load name"></td><td><input type="number" value="0"></td><td><input type="number" value="0"></td><td><input type="number" value="0"></td><td class="result">—</td><td class="result">—</td><td><button type="button" class="remove" aria-label="Remove load">×</button></td></tr></template>
   <script src="/app.js"></script>

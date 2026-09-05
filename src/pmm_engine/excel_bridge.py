@@ -5,14 +5,21 @@ from __future__ import annotations
 import json
 import sys
 from dataclasses import asdict
-from math import atan2, ceil, degrees, isfinite
+from math import atan2, ceil, cos, degrees, hypot, isfinite, pi, radians, sin
 from pathlib import Path
 from typing import Any
 
-from .builders import RectangularSectionInput, build_rectangular_section
+from .builders import (
+    CircularSectionInput,
+    RectangularSectionInput,
+    build_circular_section,
+    build_rectangular_section,
+)
 from .fiber import fiber_nominal_capacity, mesh_section
+from .geometry import clip_polygon_half_plane, projection_bounds
 from .interaction import (
     Demand,
+    DemandResult,
     check_demand_on_contour,
     moment_contour_at_axial_load,
     pm_curve,
@@ -26,18 +33,49 @@ def calculate_payload(payload: dict[str, Any]) -> dict[str, Any]:
     if payload.get("schema_version", 1) != 1:
         raise ValueError("Unsupported input schema version")
     raw_section = payload.get("section", {})
-    inputs = RectangularSectionInput(
-        width=float(raw_section.get("width_in", 20.0)),
-        depth=float(raw_section.get("depth_in", 30.0)),
-        concrete_strength=float(raw_section.get("fc_ksi", 4.0)),
-        steel_yield_strength=float(raw_section.get("fy_ksi", 60.0)),
-        clear_cover=float(raw_section.get("clear_cover_in", 2.0)),
-        tie_bar_size=str(raw_section.get("tie_bar_size", "#4")),
-        longitudinal_bar_size=str(raw_section.get("longitudinal_bar_size", "#8")),
-        maximum_bar_spacing=float(raw_section.get("maximum_spacing_in", 6.0)),
-        name=str(raw_section.get("name", "Excel rectangular section")),
-    )
+    beam_id = str(
+        raw_section.get("beam_id") or raw_section.get("name") or "B-1"
+    ).strip() or "B-1"
+    section_shape = str(raw_section.get("shape", "rectangular")).lower()
+    if section_shape in {"rectangle", "rect"}:
+        section_shape = "rectangular"
+    elif section_shape in {"circle", "round"}:
+        section_shape = "circular"
+    common_inputs = {
+        "concrete_strength": float(raw_section.get("fc_ksi", 4.0)),
+        "steel_yield_strength": float(raw_section.get("fy_ksi", 60.0)),
+        "clear_cover": float(raw_section.get("clear_cover_in", 2.0)),
+        "tie_bar_size": str(raw_section.get("tie_bar_size", "#4")),
+        "longitudinal_bar_size": str(raw_section.get("longitudinal_bar_size", "#8")),
+        "maximum_bar_spacing": float(raw_section.get("maximum_spacing_in", 6.0)),
+        "name": beam_id,
+    }
+    if section_shape == "rectangular":
+        inputs = RectangularSectionInput(
+            width=float(raw_section.get("width_in", 20.0)),
+            depth=float(raw_section.get("depth_in", 30.0)),
+            **common_inputs,
+        )
+        section = build_rectangular_section(inputs)
+        display_dimensions = {"width": inputs.width, "depth": inputs.depth}
+    elif section_shape == "circular":
+        inputs = CircularSectionInput(
+            diameter=float(raw_section.get("diameter_in", 24.0)),
+            boundary_segments=int(raw_section.get("boundary_segments", 96)),
+            **common_inputs,
+        )
+        section = build_circular_section(inputs)
+        display_dimensions = {
+            "width": inputs.diameter,
+            "depth": inputs.diameter,
+            "diameter": inputs.diameter,
+        }
+    else:
+        raise ValueError("Section shape must be 'rectangular' or 'circular'")
     analysis_input = payload.get("analysis", {})
+    include_response_diagrams = bool(
+        analysis_input.get("include_response_diagrams", False)
+    )
     angle_step = float(analysis_input.get("angle_step_deg", 5.0))
     concrete_model = str(analysis_input.get("concrete_model", "whitney")).lower()
     integration_method = str(
@@ -50,7 +88,6 @@ def calculate_payload(payload: dict[str, Any]) -> dict[str, Any]:
     if integration_method not in {"shape", "fiber"}:
         raise ValueError("Analysis method must be either 'shape' or 'fiber'")
 
-    section = build_rectangular_section(inputs)
     fiber_mesh = None
     capacity_evaluator = None
     if integration_method == "fiber":
@@ -93,6 +130,7 @@ def calculate_payload(payload: dict[str, Any]) -> dict[str, Any]:
 
     demand_results = []
     contours = []
+    response_diagrams = []
     for demand in demands:
         result = check_demand_on_contour(demand, contour_cache[demand.axial_force])
         maximum_axial_residual = max(
@@ -132,6 +170,10 @@ def calculate_payload(payload: dict[str, Any]) -> dict[str, Any]:
                 "note": note,
             }
         )
+        if include_response_diagrams:
+            response_diagrams.append(
+                _response_diagram(section, demand, result, angle_step)
+            )
         contours.extend(
             {
                 "demand_label": demand.label,
@@ -199,6 +241,9 @@ def calculate_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "units": {"force": "kip", "moment": "kip-ft", "length": "in"},
         "section": {
             **asdict(inputs),
+            "beam_id": beam_id,
+            "shape": section_shape,
+            **display_dimensions,
             "centerline_cover": inputs.centerline_cover,
             "gross_area_in2": section.gross_area,
             "steel_area_in2": section.steel_area,
@@ -231,6 +276,7 @@ def calculate_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "demands": demand_results,
         "contours": contours,
         "onion_contours": onion_rows,
+        "response_diagrams": response_diagrams,
         "assumptions": [
             "ACI 318-19 tied-member strength reduction factors",
             "Whitney equivalent rectangular concrete stress block",
@@ -248,35 +294,177 @@ def calculate_payload(payload: dict[str, Any]) -> dict[str, Any]:
     return output
 
 
+def _response_diagram(
+    section, demand: Demand, result: DemandResult, angle_step: float
+) -> dict[str, Any]:
+    demand_radius = hypot(demand.moment_x, demand.moment_y)
+    if not result.contour:
+        return {
+            "load_label": demand.label,
+            "available": False,
+            "note": "No strain state is available because Pu is outside the attainable factored range.",
+        }
+    if demand_radius <= 1e-12:
+        return {
+            "load_label": demand.label,
+            "available": False,
+            "note": "A zero-moment demand has no controlling bending direction.",
+        }
+
+    target_angle = atan2(demand.moment_y, demand.moment_x)
+
+    def direction_error(point) -> float:
+        point_angle = atan2(point.moment_y, point.moment_x)
+        return abs(atan2(sin(point_angle - target_angle), cos(point_angle - target_angle)))
+
+    candidates = [
+        point
+        for point in result.contour
+        if hypot(point.moment_x, point.moment_y) > 1e-9
+    ]
+    if not candidates:
+        return {
+            "load_label": demand.label,
+            "available": False,
+            "note": "No nonzero moment capacity point is available at this Pu.",
+        }
+    controlling = min(candidates, key=direction_error)
+    nominal = controlling.nominal
+    angle = radians(nominal.neutral_axis_angle_deg)
+    normal = (cos(angle), sin(angle))
+    projection_limits = [
+        projection_bounds(region.polygon, normal) for region in section.regions
+    ]
+    projection_min = min(item[0] for item in projection_limits)
+    projection_max = max(item[1] for item in projection_limits)
+
+    block_polygons = []
+    for region in section.regions:
+        block_offset = projection_max - region.material.beta1 * nominal.neutral_axis_depth
+        clipped = clip_polygon_half_plane(region.polygon, normal, block_offset)
+        if clipped is not None:
+            block_polygons.append(
+                [{"x_in": x, "y_in": y} for x, y in clipped.exterior]
+            )
+
+    steel = section.bars[0].material if section.bars else None
+    yield_strain = steel.fy / steel.elastic_modulus if steel is not None else 0.0
+    curve_limit = 2.5 * yield_strain if yield_strain > 0.0 else 0.01
+    steel_curve = []
+    if steel is not None:
+        for strain in (-curve_limit, -yield_strain, 0.0, yield_strain, curve_limit):
+            steel_curve.append({"strain": strain, "stress_ksi": steel.stress(strain)})
+
+    concrete = section.regions[0].material
+    minimum_strain = concrete.eps_cu * (
+        projection_min - nominal.neutral_axis_offset
+    ) / nominal.neutral_axis_depth
+    direction_error_deg = degrees(direction_error(controlling))
+    classification = "compression-controlled"
+    if nominal.extreme_tensile_strain >= yield_strain + 0.003:
+        classification = "tension-controlled"
+    elif nominal.extreme_tensile_strain > yield_strain:
+        classification = "transition"
+
+    return {
+        "load_label": demand.label,
+        "available": True,
+        "note": (
+            f"Closest solved orientation from the {angle_step:g}-degree contour; "
+            f"moment-direction difference = {direction_error_deg:.3f} degrees."
+        ),
+        "classification": classification,
+        "direction_error_deg": direction_error_deg,
+        "neutral_axis_angle_deg": nominal.neutral_axis_angle_deg,
+        "neutral_axis_depth_in": nominal.neutral_axis_depth,
+        "neutral_axis_offset_in": nominal.neutral_axis_offset,
+        "normal": {"x": normal[0], "y": normal[1]},
+        "projection_min_in": projection_min,
+        "projection_max_in": projection_max,
+        "minimum_section_strain": minimum_strain,
+        "maximum_concrete_strain": concrete.eps_cu,
+        "block_depth_in": concrete.beta1 * nominal.neutral_axis_depth,
+        "block_offset_in": projection_max
+        - concrete.beta1 * nominal.neutral_axis_depth,
+        "block_stress_ksi": concrete.block_stress,
+        "beta1": concrete.beta1,
+        "phi": controlling.phi,
+        "capacity": {
+            "pu_kip": controlling.axial_force,
+            "mx_kip_ft": controlling.moment_x / 12.0,
+            "my_kip_ft": controlling.moment_y / 12.0,
+        },
+        "section_outlines": [
+            [{"x_in": x, "y_in": y} for x, y in region.polygon.exterior]
+            for region in section.regions
+        ],
+        "block_polygons": block_polygons,
+        "bars": [
+            {
+                "label": bar.label,
+                "x_in": bar.x,
+                "y_in": bar.y,
+                "projection_in": normal[0] * bar.x + normal[1] * bar.y,
+                "strain": bar.strain,
+                "stress_ksi": bar.stress,
+            }
+            for bar in nominal.bar_responses
+        ],
+        "steel": {
+            "fy_ksi": steel.fy if steel is not None else None,
+            "elastic_modulus_ksi": steel.elastic_modulus if steel is not None else None,
+            "yield_strain": yield_strain,
+            "curve": steel_curve,
+        },
+    }
+
+
 def _calculation_report(result: dict[str, Any]) -> list[list[str]]:
     section = result["section"]
     analysis = result["analysis"]
     tie_diameter = US_BAR_DIAMETERS_IN[section["tie_bar_size"]]
     longitudinal_diameter = US_BAR_DIAMETERS_IN[section["longitudinal_bar_size"]]
-    horizontal_count = ceil(
-        (section["width"] - 2.0 * section["centerline_cover"])
-        / section["maximum_bar_spacing"]
-    ) + 1
-    vertical_count = ceil(
-        (section["depth"] - 2.0 * section["centerline_cover"])
-        / section["maximum_bar_spacing"]
-    ) + 1
+    if section["shape"] == "circular":
+        bar_radius = section["diameter"] / 2.0 - section["centerline_cover"]
+        section_description = f"Circular section: D = {section['diameter']:.3f} in"
+        layout_lines = [
+            [f"Longitudinal bar ring radius = D/2 - c_bar = {bar_radius:.3f} in"],
+            [f"Bar count = max(4, ceil(2 pi r_bar/s_max)) = {section['bar_count']}"],
+            [f"Bars are uniformly distributed at {360.0 / section['bar_count']:.3f} degrees"],
+            [f"Ag = polygonal circular boundary area = {section['gross_area_in2']:.3f} in^2"],
+        ]
+    else:
+        horizontal_count = ceil(
+            (section["width"] - 2.0 * section["centerline_cover"])
+            / section["maximum_bar_spacing"]
+        ) + 1
+        vertical_count = ceil(
+            (section["depth"] - 2.0 * section["centerline_cover"])
+            / section["maximum_bar_spacing"]
+        ) + 1
+        section_description = (
+            f"Rectangular section: b = {section['width']:.3f} in, "
+            f"h = {section['depth']:.3f} in"
+        )
+        layout_lines = [
+            [f"Horizontal face bar count = ceil((b - 2c_bar)/s_max) + 1 = {horizontal_count}"],
+            [f"Vertical face bar count = ceil((h - 2c_bar)/s_max) + 1 = {vertical_count}"],
+            [f"Total unique perimeter bars = 2 n_h + 2(n_v - 2) = {section['bar_count']}"],
+            [f"Ag = b h = {section['gross_area_in2']:.3f} in^2"],
+        ]
     lines = [
         ["PMM ENGINE — SECTION STRENGTH CALCULATION"],
         ["ACI 318-19 | US customary units | Compression positive"],
         [""],
         ["1. GIVEN"],
-        [f"Section: b = {section['width']:.3f} in, h = {section['depth']:.3f} in"],
+        [section_description],
         [f"Materials: f'c = {section['concrete_strength']:.3f} ksi, fy = {section['steel_yield_strength']:.3f} ksi"],
         [f"Reinforcement: {section['longitudinal_bar_size']} longitudinal bars; {section['tie_bar_size']} ties"],
         [f"Clear cover = {section['clear_cover']:.3f} in; maximum perimeter spacing = {section['maximum_bar_spacing']:.3f} in"],
         [""],
         ["2. SECTION AND BAR LAYOUT"],
         [f"Longitudinal bar centerline cover = cover + d_tie + d_bar/2 = {section['clear_cover']:.3f} + {tie_diameter:.3f} + {longitudinal_diameter:.3f}/2 = {section['centerline_cover']:.3f} in"],
-        [f"Horizontal face bar count = ceil((b - 2c_bar)/s_max) + 1 = {horizontal_count}"],
-        [f"Vertical face bar count = ceil((h - 2c_bar)/s_max) + 1 = {vertical_count}"],
-        [f"Total unique perimeter bars = 2 n_h + 2(n_v - 2) = {section['bar_count']}"],
-        [f"Ag = b h = {section['gross_area_in2']:.3f} in^2"],
+        *layout_lines,
         [f"Ast = sum Ab = {section['steel_area_in2']:.3f} in^2"],
         [f"rho_g = Ast/Ag = {section['reinforcement_ratio']:.5f} = {100.0 * section['reinforcement_ratio']:.3f}%"],
         [""],
@@ -364,7 +552,10 @@ def run_workbook() -> None:
             "longitudinal_bar_size": inputs_sheet.range("B10").value,
             "maximum_spacing_in": inputs_sheet.range("B11").value,
         },
-        "analysis": {"angle_step_deg": inputs_sheet.range("B12").value},
+        "analysis": {
+            "angle_step_deg": inputs_sheet.range("B12").value,
+            "include_onion": False,
+        },
         "demands": [],
     }
     demand_values = demands_sheet.range("A4").expand("table").value or []

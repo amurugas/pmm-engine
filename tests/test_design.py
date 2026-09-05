@@ -2,8 +2,10 @@ from pytest import approx
 
 from pmm_engine import (
     ACI31819,
+    CircularSectionInput,
     Demand,
     RectangularSectionInput,
+    build_circular_section,
     build_rectangular_section,
     check_demand,
     design_capacity,
@@ -22,6 +24,16 @@ def test_clear_cover_and_tie_size_generate_expected_fourteen_bars() -> None:
     assert inputs.centerline_cover == approx(3.0)
     assert len(section.bars) == 14
     assert section.steel_area == approx(14 * 0.79)
+
+
+def test_circular_section_uses_uniform_perimeter_bar_ring() -> None:
+    inputs = CircularSectionInput(diameter=24.0)
+    section = build_circular_section(inputs)
+    assert len(section.regions[0].polygon.exterior) == 96
+    assert len(section.bars) == 10
+    assert section.gross_area == approx(3.141592653589793 * 12.0**2, rel=8e-4)
+    radii = [(bar.x**2 + bar.y**2) ** 0.5 for bar in section.bars]
+    assert radii == approx([9.0] * 10)
 
 
 def test_aci_phi_limits_and_transition() -> None:
