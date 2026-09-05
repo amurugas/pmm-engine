@@ -26,10 +26,18 @@ h1 { font-size: 18px; line-height: 1.3; font-weight: 600; margin: 0 0 12px; }
 h2 { font-size: 15px; line-height: 1.3; font-weight: 600; margin: 0; }
 .section-view { display: grid; place-items: center; height: 340px; background: #fff; border: 1px solid #d1dae1; border-radius: 7px; }
 .section-view svg { width: 100%; height: 100%; }
-#section-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 9px 14px; margin-top: 14px; }
+.settings-tabs { display: flex; gap: 3px; margin-top: 14px; border-bottom: 1px solid #c8d2da; }
+.settings-tabs button { border: 0; border-radius: 5px 5px 0 0; background: transparent; color: #536371; padding: 7px 13px; }
+.settings-tabs button[aria-selected="true"] { color: #154b41; background: #ddf1ed; box-shadow: inset 0 -2px #278274; }
+#section-inputs { margin-top: 10px; }
+.settings-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 9px 14px; }
+.settings-panel[hidden] { display: none; }
 .field { display: grid; grid-template-columns: minmax(115px, 1fr) minmax(80px, 120px); align-items: center; gap: 8px; }
+.field-wide { grid-column: 1 / -1; grid-template-columns: minmax(115px, 1fr) minmax(210px, 260px); }
 .field label { color: #4d5c69; }
 .field input, .field select, #demand-table input { width: 100%; border: 1px solid #b8c3cc; border-radius: 4px; background: #fff; color: #17232d; padding: 6px 7px; }
+.field input:disabled, .field select:disabled { color: #7e8a93; background: #e9edef; cursor: not-allowed; }
+.advanced-note { grid-column: 1 / -1; margin: 2px 0 0; padding: 8px 9px; border-left: 3px solid #5e938a; background: #edf5f3; color: #485b59; font-size: 12px; line-height: 1.45; }
 .section-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 13px; }
 .metric { padding: 8px 9px; background: #e8eff2; border-radius: 5px; }
 .metric span { display: block; color: #566674; font-size: 12px; }
@@ -78,7 +86,8 @@ dialog::backdrop { background: #17212aaa; }
   .actions { width: 100%; flex-wrap: wrap; }
   .workspace { min-height: 0; }
   .left-panel, .right-panel { padding: 13px; }
-  #section-inputs { grid-template-columns: 1fr; }
+  .settings-panel { grid-template-columns: 1fr; }
+  .field-wide { grid-column: auto; grid-template-columns: minmax(115px, 1fr) minmax(80px, 120px); }
   .section-summary { grid-template-columns: 1fr; }
   #capacity-chart { height: 330px; }
 }

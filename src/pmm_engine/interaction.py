@@ -4,11 +4,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import cos, hypot, log10, radians, sin
+from typing import Callable
 
 from .design import ACI31819, DesignCapacityPoint, design_capacity
 from .geometry import projection_bounds
 from .section import Section
-from .solver import nominal_capacity
+from .solver import CapacityPoint, nominal_capacity
+
+NominalCapacityEvaluator = Callable[[float, float], CapacityPoint]
 
 
 @dataclass(frozen=True)
@@ -35,6 +38,7 @@ def factored_capacity_at_axial_load(
     neutral_axis_angle_deg: float,
     target_axial_force: float,
     code: ACI31819 = ACI31819(),
+    capacity_evaluator: NominalCapacityEvaluator | None = None,
     relative_tolerance: float = 1e-8,
     maximum_iterations: int = 160,
 ) -> DesignCapacityPoint:
@@ -53,13 +57,18 @@ def factored_capacity_at_axial_load(
     upper_depth = max(projected_depth, 1.0)
 
     def response(depth: float) -> DesignCapacityPoint:
-        return design_capacity(
-            section,
-            nominal_capacity(
+        nominal = (
+            capacity_evaluator(neutral_axis_angle_deg, depth)
+            if capacity_evaluator is not None
+            else nominal_capacity(
                 section,
                 neutral_axis_angle_deg=neutral_axis_angle_deg,
                 neutral_axis_depth=depth,
-            ),
+            )
+        )
+        return design_capacity(
+            section,
+            nominal,
             code,
         )
 
@@ -75,16 +84,23 @@ def factored_capacity_at_axial_load(
         raise ValueError("Factored axial demand is below the attainable tension limit")
 
     force_scale = max(abs(target_axial_force), upper.axial_cap, 1.0)
+    best = lower if abs(lower.axial_force - target_axial_force) < abs(
+        upper.axial_force - target_axial_force
+    ) else upper
     for _ in range(maximum_iterations):
         middle_depth = 0.5 * (lower_depth + upper_depth)
         middle = response(middle_depth)
         residual = middle.axial_force - target_axial_force
+        if abs(residual) < abs(best.axial_force - target_axial_force):
+            best = middle
         if abs(residual) <= relative_tolerance * force_scale:
             return middle
         if residual < 0.0:
             lower_depth = middle_depth
         else:
             upper_depth = middle_depth
+    if capacity_evaluator is not None:
+        return best
     raise RuntimeError("Factored axial-force equilibrium did not converge")
 
 
@@ -94,6 +110,7 @@ def moment_contour_at_axial_load(
     target_axial_force: float,
     angle_step_deg: float = 5.0,
     code: ACI31819 = ACI31819(),
+    capacity_evaluator: NominalCapacityEvaluator | None = None,
 ) -> tuple[DesignCapacityPoint, ...]:
     if not 0.0 < angle_step_deg <= 90.0:
         raise ValueError("Angle step must be greater than 0 and no greater than 90 degrees")
@@ -104,6 +121,7 @@ def moment_contour_at_axial_load(
             neutral_axis_angle_deg=index * 360.0 / count,
             target_axial_force=target_axial_force,
             code=code,
+            capacity_evaluator=capacity_evaluator,
         )
         for index in range(count)
     )
@@ -115,6 +133,7 @@ def check_demand(
     *,
     angle_step_deg: float = 5.0,
     code: ACI31819 = ACI31819(),
+    capacity_evaluator: NominalCapacityEvaluator | None = None,
 ) -> DemandResult:
     radius = hypot(demand.moment_x, demand.moment_y)
     try:
@@ -123,6 +142,7 @@ def check_demand(
             target_axial_force=demand.axial_force,
             angle_step_deg=angle_step_deg,
             code=code,
+            capacity_evaluator=capacity_evaluator,
         )
     except ValueError:
         return DemandResult(demand, 0.0, radius, float("inf"), "NG", ())
@@ -159,6 +179,7 @@ def pm_curve(
     positive_angle_deg: float,
     point_count_per_branch: int = 61,
     code: ACI31819 = ACI31819(),
+    capacity_evaluator: NominalCapacityEvaluator | None = None,
 ) -> tuple[DesignCapacityPoint, ...]:
     """Return a closed two-branch factored P-M curve."""
 
@@ -166,14 +187,20 @@ def pm_curve(
         raise ValueError("A PM branch needs at least three points")
     depth = _projected_depth(section, positive_angle_deg)
     depths = _logspace(depth * 1e-5, depth * 1e4, point_count_per_branch)
+
+    def nominal(angle: float, value: float):
+        if capacity_evaluator is not None:
+            return capacity_evaluator(angle, value)
+        return nominal_capacity(
+            section,
+            neutral_axis_angle_deg=angle,
+            neutral_axis_depth=value,
+        )
+
     positive = [
         design_capacity(
             section,
-            nominal_capacity(
-                section,
-                neutral_axis_angle_deg=positive_angle_deg,
-                neutral_axis_depth=value,
-            ),
+            nominal(positive_angle_deg, value),
             code,
         )
         for value in depths
@@ -181,11 +208,7 @@ def pm_curve(
     negative = [
         design_capacity(
             section,
-            nominal_capacity(
-                section,
-                neutral_axis_angle_deg=positive_angle_deg + 180.0,
-                neutral_axis_depth=value,
-            ),
+            nominal(positive_angle_deg + 180.0, value),
             code,
         )
         for value in reversed(depths)

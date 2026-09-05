@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from pmm_engine.excel_bridge import calculate_payload
 
 
@@ -21,6 +23,8 @@ def test_payload_returns_workbook_ready_results() -> None:
     assert result["demands"][0]["label"] == "LC-1"
     assert result["demands"][0]["dcr"] > 0.0
     assert len(result["contours"]) == 36
+    assert result["analysis"]["integration_method"] == "shape"
+    assert result["analysis"]["concrete_model"] == "whitney"
     report = "\n".join(row[0] for row in result["calculation_report"])
     assert "2. SECTION AND BAR LAYOUT" in report
     assert "DCR=" in report
@@ -44,3 +48,48 @@ def test_zero_moment_and_out_of_range_demands_are_strict_json_safe() -> None:
     assert result["demands"][1]["dcr"] is None
     assert result["demands"][1]["status"] == "NG"
     json.dumps(result, allow_nan=False)
+
+
+def test_fiber_analysis_is_wired_through_pmm_and_dcr_results() -> None:
+    result = calculate_payload(
+        {
+            "schema_version": 1,
+            "section": {},
+            "analysis": {
+                "concrete_model": "whitney",
+                "integration_method": "fiber",
+                "fiber_divisions": 10,
+                "angle_step_deg": 90.0,
+            },
+            "demands": [
+                {
+                    "label": "fiber-check",
+                    "pu_kip": 0.0,
+                    "mux_kip_ft": 100.0,
+                    "muy_kip_ft": 0.0,
+                }
+            ],
+        }
+    )
+    assert result["analysis"]["integration_method"] == "fiber"
+    assert result["analysis"]["fiber_count"] > 0
+    assert result["analysis"]["fiber_target_size_in"] > 0.0
+    assert result["demands"][0]["dcr"] > 0.0
+    assert result["demands"][0]["max_contour_axial_residual_kip"] >= 0.0
+    assert len(result["contours"]) == 4
+    assert "axial_residual_kip" in result["contours"][0]
+    report = "\n".join(row[0] for row in result["calculation_report"])
+    assert "Concrete fiber mesh" in report
+    json.dumps(result, allow_nan=False)
+
+
+def test_unimplemented_concrete_model_is_rejected_explicitly() -> None:
+    with pytest.raises(ValueError, match="not implemented"):
+        calculate_payload(
+            {
+                "schema_version": 1,
+                "section": {},
+                "analysis": {"concrete_model": "razvi"},
+                "demands": [],
+            }
+        )

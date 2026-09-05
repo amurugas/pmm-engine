@@ -21,16 +21,30 @@
       <h1>Section & assumptions</h1>
       <div class="section-view"><svg id="section-svg" role="img" aria-label="Reinforced concrete section preview"></svg></div>
 
+      <div class="settings-tabs" role="tablist" aria-label="Section settings">
+        <button type="button" data-settings-tab="basic" role="tab" aria-selected="true" aria-controls="basic-settings">Basic</button>
+        <button type="button" data-settings-tab="advanced" role="tab" aria-selected="false" aria-controls="advanced-settings">Advanced</button>
+      </div>
       <form id="section-inputs">
-        <div class="field"><label for="width">Width (in)</label><input id="width" type="number" min="1" step="0.25" value="20"></div>
-        <div class="field"><label for="depth">Depth (in)</label><input id="depth" type="number" min="1" step="0.25" value="30"></div>
-        <div class="field"><label for="fc">f′c (ksi)</label><input id="fc" type="number" min="0.1" step="0.1" value="4"></div>
-        <div class="field"><label for="fy">fy (ksi)</label><input id="fy" type="number" min="1" step="1" value="60"></div>
-        <div class="field"><label for="cover">Clear cover (in)</label><input id="cover" type="number" min="0" step="0.125" value="2"></div>
-        <div class="field"><label for="tie-size">Tie size</label><select id="tie-size"><option>#3</option><option selected>#4</option><option>#5</option><option>#6</option></select></div>
-        <div class="field"><label for="bar-size">Longitudinal bar</label><select id="bar-size"><option>#5</option><option>#6</option><option>#7</option><option selected>#8</option><option>#9</option><option>#10</option><option>#11</option><option>#14</option><option>#18</option></select></div>
-        <div class="field"><label for="spacing">Max spacing (in)</label><input id="spacing" type="number" min="0.5" step="0.25" value="6"></div>
-        <div class="field"><label for="dcr-step">DCR angle step</label><select id="dcr-step"><option value="10">10° · fast</option><option value="5" selected>5° · standard</option><option value="2">2° · refined</option></select></div>
+        <div id="basic-settings" class="settings-panel" role="tabpanel">
+          <div class="field"><label for="width">Width (in)</label><input id="width" type="number" min="1" step="0.25" value="20"></div>
+          <div class="field"><label for="depth">Depth (in)</label><input id="depth" type="number" min="1" step="0.25" value="30"></div>
+          <div class="field"><label for="fc">f′c (ksi)</label><input id="fc" type="number" min="0.1" step="0.1" value="4"></div>
+          <div class="field"><label for="fy">fy (ksi)</label><input id="fy" type="number" min="1" step="1" value="60"></div>
+          <div class="field"><label for="cover">Clear cover (in)</label><input id="cover" type="number" min="0" step="0.125" value="2"></div>
+          <div class="field"><label for="tie-size">Tie size</label><select id="tie-size"><option>#3</option><option selected>#4</option><option>#5</option><option>#6</option></select></div>
+          <div class="field"><label for="bar-size">Longitudinal bar</label><select id="bar-size"><option>#5</option><option>#6</option><option>#7</option><option selected>#8</option><option>#9</option><option>#10</option><option>#11</option><option>#14</option><option>#18</option></select></div>
+          <div class="field"><label for="spacing">Max spacing (in)</label><input id="spacing" type="number" min="0.5" step="0.25" value="6"></div>
+        </div>
+        <div id="advanced-settings" class="settings-panel" role="tabpanel" hidden>
+          <div class="field field-wide"><label for="concrete-model">Concrete model</label><select id="concrete-model"><option value="whitney" selected>Whitney stress block · current</option><option value="hognestad" disabled>Hognestad nonlinear · planned</option><option value="mander" disabled>Mander confined · planned</option><option value="razvi" disabled>Razvi confined · planned</option></select></div>
+          <div class="field"><label for="integration-method">Integration</label><select id="integration-method"><option value="shape" selected>Shape · analytical</option><option value="fiber">Fiber · midpoint grid</option></select></div>
+          <div class="field"><label for="dcr-step">NA rotation</label><select id="dcr-step"><option value="10">10° · fast</option><option value="5" selected>5° · standard</option><option value="2">2° · refined</option><option value="1">1° · fine</option></select></div>
+          <div class="field"><label for="fiber-divisions">Fiber divisions</label><input id="fiber-divisions" type="number" min="10" max="500" step="10" value="80" disabled></div>
+          <div class="field"><label for="onion-step">3D rotation</label><select id="onion-step"><option value="15">15° · fast</option><option value="10" selected>10° · standard</option><option value="5">5° · refined</option></select></div>
+          <div class="field"><label for="onion-layers">3D Pu layers</label><input id="onion-layers" type="number" min="3" max="41" step="2" value="13"></div>
+          <p id="analysis-note" class="advanced-note">Shape integration is exact for the Whitney block and is the recommended production setting.</p>
+        </div>
       </form>
 
       <div class="section-summary" id="section-summary"></div>

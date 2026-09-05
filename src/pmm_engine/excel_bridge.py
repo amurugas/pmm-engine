@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from .builders import RectangularSectionInput, build_rectangular_section
+from .fiber import fiber_nominal_capacity, mesh_section
 from .interaction import (
     Demand,
     check_demand_on_contour,
@@ -36,8 +37,37 @@ def calculate_payload(payload: dict[str, Any]) -> dict[str, Any]:
         maximum_bar_spacing=float(raw_section.get("maximum_spacing_in", 6.0)),
         name=str(raw_section.get("name", "Excel rectangular section")),
     )
-    angle_step = float(payload.get("analysis", {}).get("angle_step_deg", 5.0))
+    analysis_input = payload.get("analysis", {})
+    angle_step = float(analysis_input.get("angle_step_deg", 5.0))
+    concrete_model = str(analysis_input.get("concrete_model", "whitney")).lower()
+    integration_method = str(
+        analysis_input.get("integration_method", "shape")
+    ).lower()
+    if concrete_model != "whitney":
+        raise ValueError(
+            f"Concrete model '{concrete_model}' is not implemented; use 'whitney'"
+        )
+    if integration_method not in {"shape", "fiber"}:
+        raise ValueError("Analysis method must be either 'shape' or 'fiber'")
+
     section = build_rectangular_section(inputs)
+    fiber_mesh = None
+    capacity_evaluator = None
+    if integration_method == "fiber":
+        fiber_divisions = int(analysis_input.get("fiber_divisions", 80))
+        if not 10 <= fiber_divisions <= 500:
+            raise ValueError("Fiber mesh divisions must be between 10 and 500")
+        fiber_mesh = mesh_section(
+            section, divisions_along_longest_dimension=fiber_divisions
+        )
+
+        def capacity_evaluator(angle: float, depth: float):
+            return fiber_nominal_capacity(
+                section,
+                fiber_mesh,
+                neutral_axis_angle_deg=angle,
+                neutral_axis_depth=depth,
+            )
 
     demands = [
         Demand(
@@ -56,6 +86,7 @@ def calculate_payload(payload: dict[str, Any]) -> dict[str, Any]:
                     section,
                     target_axial_force=demand.axial_force,
                     angle_step_deg=angle_step,
+                    capacity_evaluator=capacity_evaluator,
                 )
             except ValueError:
                 contour_cache[demand.axial_force] = ()
@@ -64,6 +95,13 @@ def calculate_payload(payload: dict[str, Any]) -> dict[str, Any]:
     contours = []
     for demand in demands:
         result = check_demand_on_contour(demand, contour_cache[demand.axial_force])
+        maximum_axial_residual = max(
+            (
+                abs(point.axial_force - demand.axial_force)
+                for point in result.contour
+            ),
+            default=0.0,
+        )
         capacity_radius = result.capacity_radius / 12.0
         safe_capacity_radius = capacity_radius if isfinite(capacity_radius) else None
         safe_dcr = result.dcr if isfinite(result.dcr) else None
@@ -73,6 +111,11 @@ def calculate_payload(payload: dict[str, Any]) -> dict[str, Any]:
             note = "Zero moment demand; moment direction is undefined"
         elif safe_capacity_radius is None or safe_capacity_radius <= 0.0:
             note = "No valid radial intersection was found"
+        elif integration_method == "fiber" and maximum_axial_residual > 0.01:
+            note = (
+                "Fiber contour maximum axial equilibrium residual is "
+                f"{maximum_axial_residual:.3f} kip; refine the mesh for convergence"
+            )
         else:
             note = ""
         demand_results.append(
@@ -83,6 +126,7 @@ def calculate_payload(payload: dict[str, Any]) -> dict[str, Any]:
                 "muy_kip_ft": demand.moment_y / 12.0,
                 "moment_angle_deg": degrees(atan2(demand.moment_y, demand.moment_x)),
                 "capacity_radius_kip_ft": safe_capacity_radius,
+                "max_contour_axial_residual_kip": maximum_axial_residual,
                 "dcr": safe_dcr,
                 "status": result.status,
                 "note": note,
@@ -91,7 +135,9 @@ def calculate_payload(payload: dict[str, Any]) -> dict[str, Any]:
         contours.extend(
             {
                 "demand_label": demand.label,
+                "target_pu_kip": demand.axial_force,
                 "pu_kip": point.axial_force,
+                "axial_residual_kip": point.axial_force - demand.axial_force,
                 "mx_kip_ft": point.moment_x / 12.0,
                 "my_kip_ft": point.moment_y / 12.0,
                 "phi": point.phi,
@@ -99,8 +145,16 @@ def calculate_payload(payload: dict[str, Any]) -> dict[str, Any]:
             for point in result.contour
         )
 
-    curve_x = pm_curve(section, positive_angle_deg=90.0)
-    curve_y = pm_curve(section, positive_angle_deg=0.0)
+    curve_x = pm_curve(
+        section,
+        positive_angle_deg=90.0,
+        capacity_evaluator=capacity_evaluator,
+    )
+    curve_y = pm_curve(
+        section,
+        positive_angle_deg=0.0,
+        capacity_evaluator=capacity_evaluator,
+    )
     onion_rows = []
     if payload.get("analysis", {}).get("include_onion", False):
         onion_step = float(payload.get("analysis", {}).get("onion_angle_step_deg", 10.0))
@@ -127,6 +181,7 @@ def calculate_payload(payload: dict[str, Any]) -> dict[str, Any]:
                         section,
                         target_axial_force=axial_level,
                         angle_step_deg=onion_step,
+                        capacity_evaluator=capacity_evaluator,
                     )
                 except ValueError:
                     continue
@@ -154,6 +209,23 @@ def calculate_payload(payload: dict[str, Any]) -> dict[str, Any]:
             {"label": bar.label, "x_in": bar.x, "y_in": bar.y, "area_in2": bar.area}
             for bar in section.bars
         ],
+        "analysis": {
+            "concrete_model": concrete_model,
+            "integration_method": integration_method,
+            "angle_step_deg": angle_step,
+            "fiber_divisions": (
+                int(analysis_input.get("fiber_divisions", 80))
+                if integration_method == "fiber"
+                else None
+            ),
+            "fiber_count": len(fiber_mesh.fibers) if fiber_mesh is not None else None,
+            "fiber_target_size_in": (
+                fiber_mesh.target_size if fiber_mesh is not None else None
+            ),
+            "fiber_area_error_ratio": (
+                fiber_mesh.area_error_ratio if fiber_mesh is not None else None
+            ),
+        },
         "pm_x": [_curve_row(point, "x") for point in curve_x],
         "pm_y": [_curve_row(point, "y") for point in curve_y],
         "demands": demand_results,
@@ -162,6 +234,11 @@ def calculate_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "assumptions": [
             "ACI 318-19 tied-member strength reduction factors",
             "Whitney equivalent rectangular concrete stress block",
+            (
+                "Concrete is integrated using midpoint fibers; reinforcing bars remain discrete"
+                if integration_method == "fiber"
+                else "Concrete compression is integrated analytically over the section shape"
+            ),
             "Elastic-perfectly plastic reinforcing steel",
             "Clear cover is measured to the outside of transverse reinforcement",
             "DCR is a radial intersection with a direct biaxial capacity contour at Pu",
@@ -173,6 +250,7 @@ def calculate_payload(payload: dict[str, Any]) -> dict[str, Any]:
 
 def _calculation_report(result: dict[str, Any]) -> list[list[str]]:
     section = result["section"]
+    analysis = result["analysis"]
     tie_diameter = US_BAR_DIAMETERS_IN[section["tie_bar_size"]]
     longitudinal_diameter = US_BAR_DIAMETERS_IN[section["longitudinal_bar_size"]]
     horizontal_count = ceil(
@@ -203,15 +281,29 @@ def _calculation_report(result: dict[str, Any]) -> list[list[str]]:
         [f"rho_g = Ast/Ag = {section['reinforcement_ratio']:.5f} = {100.0 * section['reinforcement_ratio']:.3f}%"],
         [""],
         ["3. SECTIONAL STRENGTH METHOD"],
+        [f"Concrete model = {analysis['concrete_model'].title()} equivalent stress block."],
+        [f"Concrete integration = {analysis['integration_method'].title()} based; neutral-axis rotation increment = {analysis['angle_step_deg']:.3f} degrees."],
         ["Plane sections remain plane; maximum concrete compression strain = 0.003."],
         ["Concrete compression uses the Whitney block: 0.85 f'c over depth a = beta1 c."],
         ["Steel is elastic-perfectly plastic with Es = 29,000 ksi and |fs| <= fy."],
         ["For each neutral-axis orientation, sum axial force and biaxial moments about the gross centroid."],
         ["ACI phi is based on extreme net tensile strain; the tied-column compression limit is 0.80 phi P0."],
-        [""],
-        ["4. FACTORED DEMAND CHECKS"],
-        ["DCR = demand moment-vector radius / radial capacity at the same Pu and moment direction."],
     ]
+    if analysis["integration_method"] == "fiber":
+        lines.extend(
+            [
+                [f"Concrete fiber mesh = {analysis['fiber_count']} midpoint fibers; target cell size = {analysis['fiber_target_size_in']:.4f} in."],
+                [f"Fiber represented-area error = {100.0 * analysis['fiber_area_error_ratio']:.5f}%."],
+                ["With a discontinuous Whitney block, finite fibers introduce small force steps; refine the mesh for convergence."],
+            ]
+        )
+    lines.extend(
+        [
+            [""],
+            ["4. FACTORED DEMAND CHECKS"],
+            ["DCR = demand moment-vector radius / radial capacity at the same Pu and moment direction."],
+        ]
+    )
     for demand in result["demands"]:
         capacity_text = (
             f"{demand['capacity_radius_kip_ft']:.3f}"

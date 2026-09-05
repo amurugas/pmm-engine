@@ -70,6 +70,12 @@ request. Deployment guidance for an office of approximately 150 engineers is
 in `docs/deployment.md`; the speed and DXF plan is in
 `docs/performance_and_geometry.md`.
 
+The website's Advanced tab selects analytical shape or midpoint-fiber concrete
+integration, neutral-axis rotation increment, and 3D sampling. Whitney is the
+only implemented concrete law; nonlinear models are identified as planned and
+cannot be selected yet. The 3D surface is calculated on demand so normal 2D
+runs do not incur its sampling cost.
+
 ## Shape versus fiber
 
 The recommended production architecture is hybrid:

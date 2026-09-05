@@ -23,7 +23,15 @@
     return {
       schema_version: 1,
       section: { width_in: number("width"), depth_in: number("depth"), fc_ksi: number("fc"), fy_ksi: number("fy"), clear_cover_in: number("cover"), tie_bar_size: byId("tie-size").value, longitudinal_bar_size: byId("bar-size").value, maximum_spacing_in: number("spacing") },
-      analysis: { angle_step_deg: number("dcr-step"), include_onion: true, onion_angle_step_deg: 10, onion_layer_count: 13 },
+      analysis: {
+        concrete_model: byId("concrete-model").value,
+        integration_method: byId("integration-method").value,
+        fiber_divisions: number("fiber-divisions"),
+        angle_step_deg: number("dcr-step"),
+        include_onion: state.view === "three",
+        onion_angle_step_deg: number("onion-step"),
+        onion_layer_count: number("onion-layers")
+      },
       demands: demands()
     };
   }
@@ -66,6 +74,11 @@
     const s = state.result.section;
     byId("section-summary").innerHTML = `<div class="metric"><span>Bars</span><strong>${s.bar_count} ${s.longitudinal_bar_size}</strong></div><div class="metric"><span>Steel area</span><strong>${s.steel_area_in2.toFixed(2)} in²</strong></div><div class="metric"><span>ρg</span><strong>${(100 * s.reinforcement_ratio).toFixed(3)}%</strong></div>`;
     byId("project-title").textContent = `${s.width} × ${s.depth} in · ACI 318-19`;
+    const analysis = state.result.analysis;
+    const maximumResidual = Math.max(0, ...state.result.demands.map(item => item.max_contour_axial_residual_kip || 0));
+    byId("analysis-note").textContent = analysis.integration_method === "fiber"
+      ? `Fiber integration used ${analysis.fiber_count.toLocaleString()} concrete midpoint fibers (${analysis.fiber_target_size_in.toFixed(3)} in target size; ${(100 * analysis.fiber_area_error_ratio).toFixed(4)}% represented-area error). Maximum demand-contour axial residual: ${maximumResidual.toFixed(3)} kip. Refine the mesh to check convergence.`
+      : "Shape integration is exact for the Whitney block and is the recommended production setting.";
     byId("calculation-text").textContent = state.result.calculation_report.map(row => row[0]).join("\n");
   }
 
@@ -219,7 +232,25 @@
     if (event.target.classList.contains("remove")) { row.remove(); state.selected=0; }
     if (state.result) { updateResults(); renderChart(); }
   });
-  document.querySelectorAll("[data-view]").forEach(button => button.addEventListener("click", () => { state.view=button.dataset.view; document.querySelectorAll("[data-view]").forEach(item=>item.setAttribute("aria-pressed",String(item===button))); renderChart(); }));
+  document.querySelectorAll("[data-settings-tab]").forEach(button => button.addEventListener("click", () => {
+    const selected = button.dataset.settingsTab;
+    document.querySelectorAll("[data-settings-tab]").forEach(item => item.setAttribute("aria-selected", String(item === button)));
+    byId("basic-settings").hidden = selected !== "basic";
+    byId("advanced-settings").hidden = selected !== "advanced";
+  }));
+  byId("integration-method").addEventListener("change", () => {
+    const fiber = byId("integration-method").value === "fiber";
+    byId("fiber-divisions").disabled = !fiber;
+    byId("analysis-note").textContent = fiber
+      ? "Fiber mode discretizes concrete into midpoint cells while keeping reinforcing bars discrete. Runtime grows quickly with mesh density and rotation refinement."
+      : "Shape integration is exact for the Whitney block and is the recommended production setting.";
+  });
+  document.querySelectorAll("[data-view]").forEach(button => button.addEventListener("click", async () => {
+    state.view=button.dataset.view;
+    document.querySelectorAll("[data-view]").forEach(item=>item.setAttribute("aria-pressed",String(item===button)));
+    if (state.view === "three" && state.result && !state.result.onion_contours.length) await analyze();
+    else renderChart();
+  }));
   byId("capacity-chart").addEventListener("pointerdown", event => { if (state.view !== "three") return; state.drag=[event.clientX,event.clientY]; byId("capacity-chart").setPointerCapture(event.pointerId); });
   byId("capacity-chart").addEventListener("pointermove", event => { if (!state.drag || state.view !== "three") return; state.yaw+=(event.clientX-state.drag[0])*.01; state.pitch=Math.max(-1.2,Math.min(1.2,state.pitch-(event.clientY-state.drag[1])*.01)); state.drag=[event.clientX,event.clientY]; renderChart(); });
   byId("capacity-chart").addEventListener("pointerup", event => { state.drag=null; if (byId("capacity-chart").hasPointerCapture(event.pointerId)) byId("capacity-chart").releasePointerCapture(event.pointerId); renderChart(); });

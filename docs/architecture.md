@@ -13,9 +13,11 @@ The primary ultimate-strength backend uses analytical polygon clipping for an
 equivalent rectangular concrete stress block and discrete reinforcing bars.
 This avoids mesh sensitivity for routine code PMM analysis.
 
-A concrete-fiber backend will implement the same resultant interface later. It
-will be used for general stress-strain laws, moment-curvature, service response,
-and as an independent numerical comparison for the analytical backend.
+A concrete-fiber backend implements the same resultant interface and can now
+generate PM curves, constant-Pu contours, and DCRs using the same Whitney law.
+It remains primarily an independent numerical comparison for the analytical
+backend. General stress-strain laws, moment-curvature, and service response are
+future work.
 
 ## Nominal mechanics separated from code resistance
 

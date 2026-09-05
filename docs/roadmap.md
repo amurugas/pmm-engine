@@ -16,6 +16,7 @@
 - Common result object for analytical shape and concrete fiber integration
 - Midpoint-grid fiber mesher
 - Same-strain-plane convergence comparison
+- PM curves, constant-Pu contours, and DCRs selectable through the web/API — complete
 - Add boundary-aware or triangulated mesh for arbitrary concave geometry
 - Add mesh diagnostics and automatic convergence study
 - Export comparison records to CSV and Excel
@@ -55,7 +56,8 @@ the ACI 318-19 behavior.
 - xlwings/VBA Analyze macro — source module complete
 - Section preview and reinforcement plot
 - P-M curves, Mx-My slices, and load-point tables
-- 2D-first capacity workspace with a toggleable 3D onion viewer
+- 2D-first capacity workspace with a toggleable 3D onion viewer — complete
+- Advanced analysis settings for integration method and angular sampling — complete
 - Step-by-step calculation sheet and print-preview button — source complete
 - Engine version, input hash, warnings, and convergence details in every run
 - Cross-platform button workflow before optional Windows UDFs
