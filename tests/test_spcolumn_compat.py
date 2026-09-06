@@ -67,7 +67,15 @@ def test_compatibility_artifacts_match_vba_contract_and_signs() -> None:
 
     assert " STRUCTUREPOINT output-contract marker v10-compatible" in report
     assert "Ag    600" in report
-    assert "Total steel area As = 3.16" in report
+    steel_line = next(line for line in report.splitlines() if "steel area" in line)
+    assert steel_line.split() == [
+        "Total",
+        "steel",
+        "area,",
+        "As",
+        "3.16",
+        "in^2",
+    ]
     assert "Pmax" in report
     assert artifacts.error_text is not None
     assert len(factored_lines) == 1 + 70 * 36

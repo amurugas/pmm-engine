@@ -582,7 +582,10 @@ def _report_preamble(model: CTIInput, properties: SectionProperties) -> list[str
         f"Xo    {properties.centroid_x:.8g}  in",
         f"Yo    {properties.centroid_y:.8g}  in",
         "",
-        f"Total steel area As = {properties.steel_area:.8g}  in^2",
+        # Keep the legacy token positions: local_4GetResults reads the fifth
+        # whitespace-delimited field as As. Adding an '=' shifts the numeric
+        # field and propagates #VALUE! into Design Summary columns AM, U, AR.
+        f"Total steel area, As       {properties.steel_area:.8g}  in^2",
         "",
     ]
 
