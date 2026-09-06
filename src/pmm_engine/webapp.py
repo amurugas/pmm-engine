@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import ipaddress
 import json
 from time import perf_counter
 from http import HTTPStatus
@@ -60,7 +61,12 @@ class PMMRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_POST(self) -> None:  # noqa: N802
-        if self.path not in {"/api/analyze", "/api/v1/analyze", "/api/v1/report"}:
+        if self.path not in {
+            "/api/analyze",
+            "/api/v1/analyze",
+            "/api/v1/report",
+            "/api/v1/spcolumn/compat",
+        }:
             self.send_error(HTTPStatus.NOT_FOUND)
             return
         try:
@@ -69,6 +75,35 @@ class PMMRequestHandler(BaseHTTPRequestHandler):
                 raise ValueError("Request body must be between 1 byte and 2 MB")
             payload = json.loads(self.rfile.read(length))
             started = perf_counter()
+            if self.path == "/api/v1/spcolumn/compat":
+                from .spcolumn_compat import run_cti_file
+
+                if not ipaddress.ip_address(self.client_address[0]).is_loopback:
+                    self._send_json(
+                        {
+                            "ok": False,
+                            "error": "The Stage 4 file compatibility endpoint is local-only",
+                        },
+                        status=HTTPStatus.FORBIDDEN,
+                    )
+                    return
+                input_path = payload.get("input_path")
+                if not isinstance(input_path, str) or not input_path.strip():
+                    raise ValueError("input_path must be a non-empty CTI file path")
+                result = run_cti_file(input_path)
+                elapsed_ms = 1000.0 * (perf_counter() - started)
+                self._send_json(
+                    {
+                        "ok": True,
+                        "meta": {
+                            "api_version": "v1",
+                            "engine_version": ENGINE_VERSION,
+                            "server_ms": elapsed_ms,
+                        },
+                        "result": result,
+                    }
+                )
+                return
             encoded = json.dumps(
                 payload, sort_keys=True, separators=(",", ":")
             ).encode()
@@ -113,7 +148,7 @@ class PMMRequestHandler(BaseHTTPRequestHandler):
                     "result": result,
                 }
             )
-        except (ValueError, TypeError, json.JSONDecodeError) as error:
+        except (OSError, ValueError, TypeError, json.JSONDecodeError) as error:
             self._send_json(
                 {"ok": False, "error": str(error)}, status=HTTPStatus.BAD_REQUEST
             )

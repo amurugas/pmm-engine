@@ -33,6 +33,34 @@ Public Function PostPMMJson(ByVal Payload As String, Optional ByVal BaseUrl As S
     PostPMMJson = Request.ResponseText
 End Function
 
+' Run one CTI file through the local compatibility endpoint. The server reads
+' the workbook-generated input and atomically writes the matching .out and
+' -factored.txt files. Existing Stage 4 result macros can then run unchanged.
+Public Function RunPMMLocalAnalysis(ByVal InputPath As String, Optional ByVal BaseUrl As String = "") As String
+    Dim Request As Object
+    Dim Endpoint As String
+    Dim Payload As String
+
+    If Len(BaseUrl) = 0 Then BaseUrl = DEFAULT_API_URL
+    Endpoint = BaseUrl & "/api/v1/spcolumn/compat"
+    Payload = "{""input_path"":""" & JsonEscape(InputPath) & """}"
+
+    Set Request = CreateObject("WinHttp.WinHttpRequest.5.1")
+    Request.SetTimeouts 5000, 5000, 10000, 600000
+    Request.Open "POST", Endpoint, False
+    Request.SetRequestHeader "Content-Type", "application/json"
+    Request.SetRequestHeader "Accept", "application/json"
+    Request.SetRequestHeader "X-PMM-Client", "Excel-Stage4-VBA"
+    Request.SetAutoLogonPolicy 0
+    Request.Send Payload
+
+    If Request.Status < 200 Or Request.Status >= 300 Then
+        Err.Raise vbObjectError + 2103, "RunPMMLocalAnalysis", _
+            "PMM local analysis returned HTTP " & Request.Status & ": " & Request.ResponseText
+    End If
+    RunPMMLocalAnalysis = Request.ResponseText
+End Function
+
 Public Sub SavePMMReportJson(ByVal Payload As String, ByVal OutputPath As String, Optional ByVal BaseUrl As String = "")
     Dim Request As Object
     Dim Stream As Object
@@ -76,4 +104,13 @@ Public Function PMMServerIsHealthy(Optional ByVal BaseUrl As String = "") As Boo
     Exit Function
 Unhealthy:
     PMMServerIsHealthy = False
+End Function
+
+Private Function JsonEscape(ByVal Value As String) As String
+    Value = Replace(Value, "\", "\\")
+    Value = Replace(Value, Chr$(34), "\" & Chr$(34))
+    Value = Replace(Value, vbCr, "\r")
+    Value = Replace(Value, vbLf, "\n")
+    Value = Replace(Value, vbTab, "\t")
+    JsonEscape = Value
 End Function

@@ -1,5 +1,39 @@
 # Windows Excel integration
 
+## Existing Stage 4 shear-wall workbook
+
+The legacy four-stage workbook can keep its CTI creation, result parsing,
+stress checks, charts, and output ranges unchanged. Only the old
+`spColumn.CLI.exe` launch is replaced by a synchronous request to the local PMM
+Engine.
+
+Install the package and start the service before opening Excel:
+
+```powershell
+py -m pip install -e .
+pmm-web --host 127.0.0.1 --port 3000
+```
+
+Create a patched copy of the supplied workbook (Excel must allow **Trust access
+to the VBA project object model** while this one-time command runs):
+
+```powershell
+.\excel\Patch-Stage4Workbook.ps1 `
+  -InputWorkbook '.\PMM\Concrete Shear Wall PMM 4 - Design - Step 2 Design v3_11.xlsm' `
+  -OutputWorkbook '.\output\Concrete Shear Wall PMM 4 - Design - Step 2 Design v3_11 - PMM Engine.xlsm' `
+  -LoadingDirectory '.\PMM\1 - Loading\Loading' `
+  -GeometryDirectory '.\PMM\2 - Geometry\Geometry' `
+  -ReinforcementDirectory '.\PMM\3 - Reinforcement\Reinforcement - Step 2 Design' `
+  -AnalysisDirectory '.\PMM\4 - Design\spCol - Step 2 Design'
+```
+
+The patch replaces the `local_3RunAnalysis` VBA module, imports
+`PMMHttpClient`, and changes only the executable preflight/error handling in
+the Batch and Run One macros. The server writes the same `.out`,
+`-factored.txt`, and optional `.txt - error.log` names expected by the existing
+Stage 4 result macros. See `docs/stage4_spcolumn_compatibility.md` for the file
+contract, sign mapping, and benchmark results.
+
 The workbook interface uses xlwings so VBA only launches Python. Engineering
 logic is not duplicated in macros or worksheet formulas.
 

@@ -17,6 +17,7 @@ end, command-line workflows, and a future interactive viewer.
 - Factored P-M curves and sampled direct biaxial Mx-My contours
 - Radial biaxial DCRs at each factored demand Pu
 - Versioned JSON calculation bridge and xlwings/VBA launcher
+- Drop-in Stage 4 spColumn file-contract adapter and local VBA HTTP client
 - Step-by-step printable engineering calculation output
 - A 20 x 30 in starter example and shape-versus-fiber convergence study
 
@@ -57,6 +58,12 @@ python3 -m pytest
 ```
 
 Windows Excel setup and macro instructions are in `excel/README.md`.
+
+The supplied four-stage shear-wall workbook can be patched so Stage 4 sends
+its generated CTI file to the local server while retaining all existing
+upstream inputs and downstream workbook parsing. The compatibility contract
+and validated sign conversion are documented in
+`docs/stage4_spcolumn_compatibility.md`.
 
 ## Local website
 
