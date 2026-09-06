@@ -839,7 +839,11 @@ def _atomic_write(path: Path, content: str) -> None:
         prefix=path.name + ".", suffix=".tmp", dir=path.parent
     )
     try:
-        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as stream:
+        # The legacy Stage 4 parser uses VBA ``Line Input #``. Its record
+        # scanning depends on Windows CRLF terminators; LF-only output is read
+        # as one long record and eventually raises Runtime error 62 while
+        # searching for the STRUCTUREPOINT version marker.
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\r\n") as stream:
             stream.write(content)
         os.replace(temporary_name, path)
     except Exception:

@@ -93,6 +93,11 @@ def test_run_cti_file_publishes_expected_stage4_filenames(tmp_path: Path) -> Non
     assert (tmp_path / "L-WALL-Bi-factored.txt").read_text().startswith(
         "Axial Force\tMoment X\tMoment Y"
     )
+    report_bytes = (tmp_path / "L-WALL-Bi.out").read_bytes()
+    factored_bytes = (tmp_path / "L-WALL-Bi-factored.txt").read_bytes()
+    assert b"\r\n STRUCTUREPOINT output-contract marker" in report_bytes
+    assert b"\n" not in report_bytes.replace(b"\r\n", b"")
+    assert b"\n" not in factored_bytes.replace(b"\r\n", b"")
 
 
 def test_local_server_runs_cti_file_for_vba_client(tmp_path: Path) -> None:
